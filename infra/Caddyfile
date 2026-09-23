@@ -1,0 +1,17 @@
+{$SITE_HOST} {
+  encode zstd gzip
+  header {
+    X-Content-Type-Options nosniff
+    Referrer-Policy strict-origin-when-cross-origin
+    Permissions-Policy "geolocation=(self), camera=(), microphone=()"
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  }
+  handle /api/* {
+    reverse_proxy api:3000
+  }
+  handle {
+    root * /srv
+    try_files {path} /index.html
+    file_server
+  }
+}

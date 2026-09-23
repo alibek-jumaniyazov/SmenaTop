@@ -1,0 +1,701 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  phone String @unique
+  name String @default("")
+  status String @default("ACTIVE")
+  locale String @default("uz")
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+  sessions Session[]
+  workerProfile WorkerProfile?
+  memberships OrganizationMembership[]
+  platformGrants PlatformRoleGrant[]
+  applications ShiftApplication[]
+  assignments Assignment[]
+}
+model Session {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  tokenHash String @unique
+  csrfHash String
+  expiresAt DateTime @db.Timestamptz
+  revokedAt DateTime? @db.Timestamptz
+  mfaVerifiedAt DateTime? @db.Timestamptz
+  createdAt DateTime @default(now()) @db.Timestamptz
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  @@index([userId,expiresAt])
+}
+model OtpChallenge {
+  id String @id @default(uuid()) @db.Uuid
+  phone String
+  codeHash String
+  ipHash String
+  attempts Int @default(0)
+  consumedAt DateTime? @db.Timestamptz
+  expiresAt DateTime @db.Timestamptz
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@index([phone,createdAt])
+  @@index([ipHash,createdAt])
+}
+model LocalInbox {
+  id String @id @default(uuid()) @db.Uuid
+  phone String
+  challengeId String? @db.Uuid
+  body String
+  createdAt DateTime @default(now()) @db.Timestamptz
+  expiresAt DateTime @db.Timestamptz
+  @@index([phone,createdAt])
+}
+model ConsentRecord {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  type String
+  version String
+  acceptedAt DateTime @default(now()) @db.Timestamptz
+  @@unique([userId,type,version])
+}
+model PlatformRoleGrant {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  role String
+  permissions String[]
+  revokedAt DateTime? @db.Timestamptz
+  createdAt DateTime @default(now()) @db.Timestamptz
+  user User @relation(fields:[userId],references:[id])
+  @@unique([userId,role])
+}
+model City {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique
+  nameUz String
+  nameRu String
+  active Boolean @default(true)
+  shifts Shift[]
+}
+model JobCategory {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique
+  nameUz String
+  nameRu String
+  active Boolean @default(true)
+  shifts Shift[]
+}
+model Skill {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique
+  nameUz String
+  nameRu String
+  workers WorkerSkill[]
+}
+model WorkerProfile {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+  cityId String @db.Uuid
+  categoryIds String[] @db.Uuid
+  languages String[]
+  experience String @default("")
+  verificationStatus String @default("UNVERIFIED")
+  adultConfirmed Boolean @default(false)
+  termsVersion String @default("2026-09-draft")
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+  user User @relation(fields:[userId],references:[id])
+  skills WorkerSkill[]
+  availability Availability[]
+}
+model WorkerSkill {
+  id String @id @default(uuid()) @db.Uuid
+  workerProfileId String @db.Uuid
+  skillId String @db.Uuid
+  status String @default("PENDING")
+  verifiedById String? @db.Uuid
+  verifiedAt DateTime? @db.Timestamptz
+  workerProfile WorkerProfile @relation(fields:[workerProfileId],references:[id],onDelete:Cascade)
+  skill Skill @relation(fields:[skillId],references:[id])
+  @@unique([workerProfileId,skillId])
+}
+model Availability {
+  id String @id @default(uuid()) @db.Uuid
+  workerProfileId String @db.Uuid
+  startAt DateTime @db.Timestamptz
+  endAt DateTime @db.Timestamptz
+  workerProfile WorkerProfile @relation(fields:[workerProfileId],references:[id],onDelete:Cascade)
+  @@index([workerProfileId,startAt])
+}
+model VerificationRequest {
+  id String @id @default(uuid()) @db.Uuid
+  subjectType String
+  subjectId String @db.Uuid
+  organizationId String? @db.Uuid
+  submittedById String @db.Uuid
+  status String @default("PENDING")
+  notes String?
+  reviewedById String? @db.Uuid
+  reviewedAt DateTime? @db.Timestamptz
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@index([status,createdAt])
+}
+model FileAsset {
+  id String @id @default(uuid()) @db.Uuid
+  ownerId String @db.Uuid
+  organizationId String? @db.Uuid
+  storageKey String @unique
+  mimeType String
+  sizeBytes Int
+  originalName String
+  status String @default("QUARANTINED")
+  sha256 String
+  createdAt DateTime @default(now()) @db.Timestamptz
+}
+model PrivateDocument {
+  id String @id @default(uuid()) @db.Uuid
+  fileId String @unique @db.Uuid
+  userId String @db.Uuid
+  purpose String
+  createdAt DateTime @default(now()) @db.Timestamptz
+}
+model Organization {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  contactName String
+  description String?
+  website String?
+  contactPhone String?
+  stir String?
+  cityId String @db.Uuid
+  verificationStatus String @default("UNVERIFIED")
+  status String @default("ACTIVE")
+  synthetic Boolean @default(false)
+  isDemo Boolean @default(false)
+  version Int @default(1)
+  createdAt DateTime @default(now()) @db.Timestamptz
+  memberships OrganizationMembership[]
+  branches Branch[]
+  shifts Shift[]
+  roles OrganizationRole[]
+  subscription Subscription?
+}
+model Permission {
+  code String @id
+  scope String @default("ORGANIZATION")
+  description String
+}
+model OrganizationRole {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  name String
+  permissions String[]
+  organization Organization @relation(fields:[organizationId],references:[id])
+  @@unique([organizationId,name])
+  @@unique([id,organizationId])
+}
+model OrganizationMembership {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  userId String @db.Uuid
+  role String @default("MANAGER")
+  customRoleId String? @db.Uuid
+  branchIds String[] @db.Uuid
+  status String @default("ACTIVE")
+  createdAt DateTime @default(now()) @db.Timestamptz
+  user User @relation(fields:[userId],references:[id])
+  organization Organization @relation(fields:[organizationId],references:[id])
+  @@unique([organizationId,userId])
+}
+model Branch {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  cityId String @db.Uuid
+  name String
+  address String
+  area String
+  active Boolean @default(true)
+  organization Organization @relation(fields:[organizationId],references:[id])
+  shifts Shift[]
+  @@unique([id,organizationId])
+}
+model TeamInvitation {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  phone String
+  role String
+  customRoleId String? @db.Uuid
+  branchIds String[] @db.Uuid
+  tokenHash String @unique
+  expiresAt DateTime @db.Timestamptz
+  acceptedAt DateTime? @db.Timestamptz
+  revokedAt DateTime? @db.Timestamptz
+  createdById String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz
+}
+model Shift {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  branchId String @db.Uuid
+  cityId String @db.Uuid
+  categoryId String @db.Uuid
+  title String
+  description String
+  duties String[]
+  requirements String[]
+  requiredSkillIds String[] @db.Uuid
+  startAt DateTime @db.Timestamptz
+  endAt DateTime @db.Timestamptz
+  timezone String @default("Asia/Tashkent")
+  breakMinutes Int @default(0)
+  paidBreak Boolean @default(false)
+  headcount Int
+  amountMinor BigInt
+  currency String @default("UZS")
+  payType String @default("HOURLY")
+  clothing String @default("")
+  mealProvided Boolean @default(false)
+  transportProvided Boolean @default(false)
+  applyDeadline DateTime @db.Timestamptz
+  cancellationPolicyVersion String @default("v1-no-automatic-penalty")
+  status String @default("DRAFT")
+  version Int @default(1)
+  publishedAt DateTime? @db.Timestamptz
+  createdAt DateTime @default(now()) @db.Timestamptz
+  organization Organization @relation(fields:[organizationId],references:[id])
+  branch Branch @relation(fields:[branchId,organizationId],references:[id,organizationId])
+  city City @relation(fields:[cityId],references:[id])
+  category JobCategory @relation(fields:[categoryId],references:[id])
+  applications ShiftApplication[]
+  offers ShiftOffer[]
+  assignments Assignment[]
+  @@unique([id,organizationId])
+  @@index([cityId,status,startAt])
+  @@index([organizationId,startAt])
+}
+model ShiftApplication {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  shiftId String @db.Uuid
+  workerId String @db.Uuid
+  status String @default("SUBMITTED")
+  note String @default("")
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+  shift Shift @relation(fields:[shiftId,organizationId],references:[id,organizationId])
+  worker User @relation(fields:[workerId],references:[id])
+  offers ShiftOffer[]
+  @@unique([shiftId,workerId])
+  @@unique([id,organizationId])
+  @@index([shiftId,status])
+}
+model ShiftOffer {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  applicationId String @db.Uuid
+  shiftId String @db.Uuid
+  workerId String @db.Uuid
+  status String @default("PENDING")
+  expiresAt DateTime @db.Timestamptz
+  createdById String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz
+  application ShiftApplication @relation(fields:[applicationId,organizationId],references:[id,organizationId])
+  shift Shift @relation(fields:[shiftId],references:[id])
+  @@index([workerId,status])
+}
+model Assignment {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  shiftId String @db.Uuid
+  workerId String @db.Uuid
+  offerId String @unique @db.Uuid
+  status String @default("CONFIRMED")
+  startAt DateTime @db.Timestamptz
+  endAt DateTime @db.Timestamptz
+  version Int @default(1)
+  cancelledAt DateTime? @db.Timestamptz
+  cancelledById String? @db.Uuid
+  cancellationReason String?
+  policySnapshot Json @default("{}")
+  createdAt DateTime @default(now()) @db.Timestamptz
+  shift Shift @relation(fields:[shiftId,organizationId],references:[id,organizationId])
+  worker User @relation(fields:[workerId],references:[id])
+  booking ActiveBooking?
+  timesheet Timesheet?
+  wage WageRecord?
+  @@unique([id,organizationId])
+  @@index([workerId,startAt])
+  @@index([organizationId,status])
+}
+model ActiveBooking {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  assignmentId String @unique @db.Uuid
+  shiftId String @db.Uuid
+  workerId String @db.Uuid
+  startAt DateTime @db.Timestamptz
+  endAt DateTime @db.Timestamptz
+  assignment Assignment @relation(fields:[assignmentId,organizationId],references:[id,organizationId],onDelete:Cascade)
+  @@unique([assignmentId,organizationId])
+  @@unique([shiftId,workerId])
+  @@index([workerId,startAt])
+}
+model AttendanceToken {
+  id String @id @default(uuid()) @db.Uuid
+  assignmentId String @db.Uuid
+  organizationId String @db.Uuid
+  tokenHash String @unique
+  kind String
+  expiresAt DateTime @db.Timestamptz
+  usedAt DateTime? @db.Timestamptz
+  createdById String @db.Uuid
+}
+model AttendanceEvent {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  assignmentId String @db.Uuid
+  actorId String @db.Uuid
+  kind String
+  method String
+  recordedAt DateTime @default(now()) @db.Timestamptz
+  reason String?
+}
+model Timesheet {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  assignmentId String @unique @db.Uuid
+  startedAt DateTime @db.Timestamptz
+  endedAt DateTime? @db.Timestamptz
+  breakMinutes Int @default(0)
+  paidMinutes Int @default(0)
+  status String @default("OPEN")
+  rateMinor BigInt @default(0)
+  payType String @default("HOURLY")
+  snapshot Json @default("{}")
+  workerApprovedAt DateTime? @db.Timestamptz
+  managerApprovedAt DateTime? @db.Timestamptz
+  correction Json?
+  version Int @default(1)
+  assignment Assignment @relation(fields:[assignmentId,organizationId],references:[id,organizationId])
+  @@unique([assignmentId,organizationId])
+}
+model WageRecord {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  assignmentId String @unique @db.Uuid
+  timesheetId String @unique @db.Uuid
+  amountMinor BigInt
+  currency String @default("UZS")
+  status String @default("CALCULATED")
+  employerMarkedPaidAt DateTime? @db.Timestamptz
+  workerConfirmedAt DateTime? @db.Timestamptz
+  snapshot Json @default("{}")
+  assignment Assignment @relation(fields:[assignmentId,organizationId],references:[id,organizationId])
+  @@unique([assignmentId,organizationId])
+}
+model Review {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  assignmentId String @db.Uuid
+  authorId String @db.Uuid
+  side String
+  rating Int
+  text String
+  status String @default("PUBLISHED")
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@unique([assignmentId,authorId])
+  @@unique([assignmentId,side])
+}
+model Dispute {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  assignmentId String @db.Uuid
+  createdById String @db.Uuid
+  category String
+  description String
+  status String @default("OPEN")
+  resolution String?
+  resolvedById String? @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz
+}
+model SupportTicket {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  organizationId String? @db.Uuid
+  subject String
+  description String
+  status String @default("OPEN")
+  resolution String?
+  createdAt DateTime @default(now()) @db.Timestamptz
+}
+model Conversation {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  assignmentId String @unique @db.Uuid
+  participants ConversationParticipant[]
+  messages Message[]
+}
+model ConversationParticipant {
+  id String @id @default(uuid()) @db.Uuid
+  conversationId String @db.Uuid
+  userId String @db.Uuid
+  lastReadAt DateTime? @db.Timestamptz
+  conversation Conversation @relation(fields:[conversationId],references:[id])
+  @@unique([conversationId,userId])
+}
+model Message {
+  id String @id @default(uuid()) @db.Uuid
+  conversationId String @db.Uuid
+  organizationId String @db.Uuid
+  senderId String @db.Uuid
+  text String
+  reportedAt DateTime? @db.Timestamptz
+  createdAt DateTime @default(now()) @db.Timestamptz
+  conversation Conversation @relation(fields:[conversationId],references:[id])
+  @@index([conversationId,createdAt])
+}
+model Notification {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  type String
+  title String
+  body String
+  resourceId String?
+  dedupeKey String? @unique
+  readAt DateTime? @db.Timestamptz
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@index([userId,readAt,createdAt])
+}
+model NotificationPreference {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+  inApp Boolean @default(true)
+  sms Boolean @default(false)
+}
+model Plan {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique
+  name String
+  active Boolean @default(true)
+  versions PlanVersion[]
+}
+model PlanVersion {
+  id String @id @default(uuid()) @db.Uuid
+  planId String @db.Uuid
+  version Int
+  priceMinor BigInt
+  currency String @default("UZS")
+  branchLimit Int
+  memberLimit Int
+  publishLimit Int
+  createdAt DateTime @default(now()) @db.Timestamptz
+  plan Plan @relation(fields:[planId],references:[id])
+  subscriptions Subscription[]
+  invoices Invoice[]
+  entitlements Entitlement[]
+  @@unique([planId,version])
+}
+model Subscription {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @unique @db.Uuid
+  status String @default("TRIALING")
+  planVersionId String @db.Uuid
+  currentPeriodStart DateTime @db.Timestamptz
+  currentPeriodEnd DateTime @db.Timestamptz
+  anchorDay Int
+  renewalSequence Int @default(1)
+  cancelAtPeriodEnd Boolean @default(false)
+  version Int @default(1)
+  organization Organization @relation(fields:[organizationId],references:[id])
+  planVersion PlanVersion @relation(fields:[planVersionId],references:[id])
+  entitlements Entitlement[]
+  invoices Invoice[]
+}
+model Entitlement {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  subscriptionId String @db.Uuid
+  renewalSequence Int
+  planVersionId String @db.Uuid
+  startsAt DateTime @db.Timestamptz
+  endsAt DateTime @db.Timestamptz
+  revokedAt DateTime? @db.Timestamptz
+  invoiceId String? @unique @db.Uuid
+  subscription Subscription @relation(fields:[subscriptionId],references:[id])
+  planVersion PlanVersion @relation(fields:[planVersionId],references:[id])
+  @@unique([subscriptionId,renewalSequence])
+}
+model UsageCounter {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  entitlementId String? @db.Uuid
+  periodKey String
+  publishedCount Int @default(0)
+  @@unique([organizationId,periodKey])
+}
+model Invoice {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  subscriptionId String @db.Uuid
+  planVersionId String @db.Uuid
+  renewalSequence Int
+  amountMinor BigInt
+  currency String @default("UZS")
+  status String @default("PENDING")
+  snapshot Json
+  plannedStart DateTime? @db.Timestamptz
+  plannedEnd DateTime? @db.Timestamptz
+  periodStart DateTime? @db.Timestamptz
+  periodEnd DateTime? @db.Timestamptz
+  fulfilledAt DateTime? @db.Timestamptz
+  fulfilledTransactionId String? @unique @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz
+  subscription Subscription @relation(fields:[subscriptionId],references:[id])
+  planVersion PlanVersion @relation(fields:[planVersionId],references:[id])
+  attempts PaymentAttempt[]
+  transactions ProviderTransaction[]
+  @@index([subscriptionId,renewalSequence])
+}
+model PaymentAttempt {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  invoiceId String @db.Uuid
+  provider String
+  environment String
+  status String @default("PENDING")
+  checkoutUrl String?
+  createdAt DateTime @default(now()) @db.Timestamptz
+  invoice Invoice @relation(fields:[invoiceId],references:[id])
+  transactions ProviderTransaction[]
+}
+model ProviderTransaction {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  invoiceId String @db.Uuid
+  paymentAttemptId String @db.Uuid
+  provider String
+  environment String
+  providerTransactionId String
+  status String
+  rawStatus String
+  amountMinor BigInt
+  currency String @default("UZS")
+  paidAt DateTime? @db.Timestamptz
+  providerCreatedAt DateTime? @db.Timestamptz
+  cancelledAt DateTime? @db.Timestamptz
+  cancelReason Int?
+  createdAt DateTime @default(now()) @db.Timestamptz
+  invoice Invoice @relation(fields:[invoiceId],references:[id])
+  attempt PaymentAttempt @relation(fields:[paymentAttemptId],references:[id])
+  @@unique([provider,environment,providerTransactionId])
+}
+model PaymentEvent {
+  id String @id @default(uuid()) @db.Uuid
+  transactionId String? @db.Uuid
+  provider String
+  environment String
+  eventKey String
+  payloadHash String
+  kind String
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@unique([provider,environment,eventKey])
+}
+model Refund {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  invoiceId String @db.Uuid
+  transactionId String @unique @db.Uuid
+  amountMinor BigInt
+  reason String
+  status String
+  requestedById String? @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz
+}
+model ReconciliationCase {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  invoiceId String @db.Uuid
+  transactionId String? @db.Uuid
+  kind String
+  status String @default("OPEN")
+  details Json
+  createdAt DateTime @default(now()) @db.Timestamptz
+}
+model ApiCredential {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  name String
+  keyPrefix String
+  keyHash String @unique
+  scopes String[]
+  expiresAt DateTime @db.Timestamptz
+  revokedAt DateTime? @db.Timestamptz
+  createdById String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz
+  lastUsedAt DateTime? @db.Timestamptz
+}
+model FeatureFlag {
+  id String @id @default(uuid()) @db.Uuid
+  key String @unique
+  enabled Boolean @default(false)
+  organizationId String? @db.Uuid
+  version Int @default(1)
+  updatedAt DateTime @updatedAt @db.Timestamptz
+}
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+  actorId String? @db.Uuid
+  organizationId String? @db.Uuid
+  action String
+  resourceType String?
+  resourceId String?
+  reason String?
+  metadata Json @default("{}")
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@index([organizationId,createdAt])
+}
+model OutboxEvent {
+  id String @id @default(uuid()) @db.Uuid
+  type String
+  aggregateId String
+  organizationId String? @db.Uuid
+  payload Json
+  dedupeKey String @unique @default(uuid())
+  createdAt DateTime @default(now()) @db.Timestamptz
+  processedAt DateTime? @db.Timestamptz
+  attempts Int @default(0)
+  availableAt DateTime @default(now()) @db.Timestamptz
+  lastError String?
+  lockedAt DateTime? @db.Timestamptz
+  @@index([processedAt,availableAt])
+}
+model IdempotencyRecord {
+  id String @id @default(uuid()) @db.Uuid
+  actorId String @db.Uuid
+  operation String
+  key String
+  payloadHash String
+  result Json
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@unique([actorId,operation,key])
+}
+model SavedShift {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  shiftId String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz
+  @@unique([userId,shiftId])
+}
+model MfaCredential {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+  secretCipherText String
+  secretIv String
+  secretTag String
+  enabledAt DateTime? @db.Timestamptz
+  lastCounter BigInt @default(0)
+  recoveryHashes String[]
+  createdAt DateTime @default(now()) @db.Timestamptz
+}

@@ -1,0 +1,10 @@
+node_modules
+dist
+.local
+pnpm-lock.yaml
+packages/api-client/src/schema.d.ts
+docs/openapi.json
+SmenaTop_Master_Prompt.md
+test-results
+playwright-report
+

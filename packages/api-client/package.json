@@ -1,0 +1,10 @@
+{
+  "name": "@smenatop/api-client",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.d.ts"
+  }
+}

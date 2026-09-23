@@ -1,0 +1,30 @@
+{
+  "measuredAt": "2026-09-22T21:15:46.164Z",
+  "url": "http://localhost:4173",
+  "profile": "Chrome headless, 390x844, fresh context/no cache, 4x CPU, 1.6Mbps down/750Kbps up/150ms latency; local production preview",
+  "runs": [
+    {
+      "lcpMs": 2628,
+      "cls": 0.0003368536011436932,
+      "resources": 306012,
+      "h1": "Vaqtingizga mos.Sizga mos ish."
+    },
+    {
+      "lcpMs": 2328,
+      "cls": 0.0003368536011436932,
+      "resources": 306012,
+      "h1": "Vaqtingizga mos.Sizga mos ish."
+    },
+    {
+      "lcpMs": 2320,
+      "cls": 0.0003368536011436932,
+      "resources": 306012,
+      "h1": "Vaqtingizga mos.Sizga mos ish."
+    }
+  ],
+  "median": {
+    "lcpMs": 2328,
+    "cls": 0.0003368536011436932
+  },
+  "inp": "Not measured; requires real interaction field evidence"
+}

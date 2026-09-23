@@ -1,0 +1,54 @@
+name: Verify SmenaTop
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_USER: smenatop
+          POSTGRES_PASSWORD: ci-only-isolated-database
+          POSTGRES_DB: smenatop
+        ports: ['55432:5432']
+        options: --health-cmd "pg_isready -U smenatop" --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7.4.5-alpine
+        ports: ['56379:6379']
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.18.0'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.34.5
+      - run: pnpm install --frozen-lockfile
+      - name: Generate isolated test settings
+        run: |
+          node scripts/setup-env.mjs
+          node -e "const fs=require('fs');let s=fs.readFileSync('.env','utf8');s=s.replace(/^DATABASE_URL=.*/m,'DATABASE_URL=postgresql://smenatop:ci-only-isolated-database@127.0.0.1:55432/smenatop').replace(/^TEST_DATABASE_URL=.*/m,'TEST_DATABASE_URL=postgresql://smenatop:ci-only-isolated-database@127.0.0.1:55432/smenatop_test');fs.writeFileSync('.env',s)"
+          PGPASSWORD=ci-only-isolated-database psql -h 127.0.0.1 -p 55432 -U smenatop -d smenatop -c 'CREATE DATABASE smenatop_test'
+      - run: pnpm db:generate
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm test:integration
+      - run: pnpm db:migrate && pnpm db:seed
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Start browser test services
+        run: |
+          mkdir -p .local
+          pnpm dev > .local/dev.log 2>&1 &
+          node scripts/wait-for.mjs http://localhost:3000/api/v1/health/ready
+          node scripts/wait-for.mjs http://localhost:5173
+      - run: pnpm api:check
+      - run: pnpm test:e2e

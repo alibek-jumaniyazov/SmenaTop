@@ -1,0 +1,75 @@
+name: smenatop-production
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    env_file: ../.env.production
+    volumes: ['postgres:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  redis:
+    image: redis:7.4.5-alpine
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes: ['redis:/data']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  api:
+    build: { context: .., dockerfile: infra/Dockerfile, target: runtime }
+    env_file: ../.env.production
+    environment: { APP_ENV: production, NODE_ENV: production, PORT: '3000' }
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ['/tmp']
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+  jobs:
+    build: { context: .., dockerfile: infra/Dockerfile, target: runtime }
+    env_file: ../.env.production
+    environment: { APP_ENV: production, NODE_ENV: production }
+    command: ['node', 'apps/jobs/dist/main.js']
+    healthcheck: { disable: true }
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+  migrate:
+    build: { context: .., dockerfile: infra/Dockerfile, target: runtime }
+    env_file: ../.env.production
+    command:
+      [
+        'node',
+        'node_modules/prisma/build/index.js',
+        'migrate',
+        'deploy',
+        '--schema',
+        'prisma/schema.prisma',
+      ]
+    profiles: [release]
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+  web:
+    build: { context: .., dockerfile: infra/Dockerfile, target: web }
+    environment:
+      SITE_HOST: ${SITE_HOST:?Set SITE_HOST to the approved domain}
+    ports: ['80:80', '443:443', '443:443/udp']
+    volumes: ['caddy-data:/data', 'caddy-config:/config']
+    depends_on: [api]
+    restart: unless-stopped
+volumes:
+  postgres:
+  redis:
+  caddy-data:
+  caddy-config:

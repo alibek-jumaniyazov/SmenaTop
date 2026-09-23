@@ -1,0 +1,47 @@
+{
+  "name": "smenatop",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22.12 <25",
+    "pnpm": ">=10 <11"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "infra:up": "docker compose -f infra/compose.yml up -d --wait",
+    "infra:down": "docker compose -f infra/compose.yml down",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:migrate": "prisma migrate deploy --schema prisma/schema.prisma",
+    "db:seed": "node --env-file=.env --import tsx prisma/seed/index.ts",
+    "build": "pnpm db:generate && pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r --if-present test",
+    "test:integration": "node --env-file=.env scripts/integration.mjs",
+    "test:e2e": "playwright test",
+    "api:generate": "node scripts/generate-api.mjs",
+    "api:check": "node scripts/generate-api.mjs --check",
+    "start": "node --env-file=.env apps/api/dist/main.js",
+    "start:jobs": "node --env-file=.env apps/jobs/dist/main.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "@playwright/test": "1.63.0",
+    "@prisma/client": "6.19.3",
+    "@types/node": "22.19.11",
+    "dotenv": "17.2.3",
+    "eslint": "9.39.1",
+    "globals": "16.5.0",
+    "openapi-typescript": "7.13.0",
+    "prettier": "3.8.1",
+    "prisma": "6.19.3",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.56.1",
+    "reflect-metadata": "0.2.2",
+    "pnpm": "10.34.5"
+  }
+}
