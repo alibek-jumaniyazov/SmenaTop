@@ -20,15 +20,13 @@ export async function bootstrap() {
   });
   app.setGlobalPrefix('api/v1');
   app.enableShutdownHooks();
-  const origins = (
-    environment.CORS_ORIGINS ??
-    environment.WEB_ORIGIN ??
-    'http://localhost:5173'
-  ).split(',');
+  const origins = (environment.CORS_ORIGINS ?? environment.WEB_ORIGIN ?? 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim());
   app.enableCors({
     origin: origins,
     credentials: true,
-    allowedHeaders: ['Content-Type', 'X-CSRF-Token', 'Idempotency-Key', 'X-Dev-Key', 'X-Api-Key'],
+    allowedHeaders: ['Content-Type', 'X-CSRF-Token', 'Idempotency-Key', 'X-Api-Key'],
   });
   app.use(helmet());
   app.use(cookieParser());
@@ -50,6 +48,7 @@ export async function bootstrap() {
   app.use((req: Request & { requestId?: string }, res: Response, next: NextFunction) => {
     req.requestId = randomUUID();
     res.setHeader('x-request-id', req.requestId);
+    res.setHeader('Cache-Control', 'no-store');
     const origin = req.header('origin');
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && origin && !origins.includes(origin)) {
       res.status(403).json({
@@ -72,7 +71,9 @@ export async function bootstrap() {
       errorHttpStatusCode: 422,
     }),
   );
-  if (environment.APP_ENV !== 'production') {
+  // Export a contract to a server-owned file only. API documentation is never
+  // registered as a public HTTP route, in any environment.
+  if (process.env.OPENAPI_OUTPUT) {
     const config = new DocumentBuilder()
       .setTitle('SmenaTop API')
       .setDescription(
@@ -84,11 +85,17 @@ export async function bootstrap() {
       .build();
     const document = SwaggerModule.createDocument(app, config);
     documentContracts(document);
-    SwaggerModule.setup('api/docs', app, document, { jsonDocumentUrl: 'api/openapi.json' });
-    if (process.env.OPENAPI_OUTPUT)
-      writeFileSync(process.env.OPENAPI_OUTPUT, JSON.stringify(document, null, 2));
+    writeFileSync(process.env.OPENAPI_OUTPUT, JSON.stringify(document, null, 2), { mode: 0o600 });
   }
-  await app.listen(Number(process.env.PORT ?? 3000), '0.0.0.0');
+  if (process.env.OPENAPI_EXPORT_ONLY === 'true') {
+    if (!process.env.OPENAPI_OUTPUT) throw new Error('OPENAPI_OUTPUT is required for export');
+    await app.close();
+    return app;
+  }
+  await app.listen(
+    Number(process.env.PORT ?? 3000),
+    environment.API_HOST ?? (environment.APP_ENV === 'local' ? '127.0.0.1' : '0.0.0.0'),
+  );
   return app;
 }
 if (require.main === module) void bootstrap();

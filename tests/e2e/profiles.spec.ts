@@ -2,6 +2,7 @@ import { test, expect, type Browser, type Page } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
+import { saveScreenshot } from './screenshot';
 
 const db = new PrismaClient();
 const baseURL = process.env.E2E_BASE_URL || 'http://localhost:5173';
@@ -53,7 +54,7 @@ async function screenshot(page: Page, name: string, width: number) {
     `${name} has horizontal overflow at ${width}px`,
   ).toBe(true);
   await mkdir('docs/screenshots', { recursive: true });
-  await page.screenshot({ path: `docs/screenshots/${name}-${width}.png`, fullPage: true });
+  await saveScreenshot(page, { path: `docs/screenshots/${name}-${width}.png`, fullPage: true });
 }
 async function editWorker(page: Page) {
   await page
@@ -79,7 +80,10 @@ test('worker resume validates, retains a dirty draft, saves to API and survives 
     await ready(page);
     await expect(page.locator('.resume-identity h2')).toHaveText(auth.user.name || '');
     await expect(page.locator('.resume-contact')).toContainText(workerPhone);
+    await expect(page.locator('.resume-documents > summary')).toBeVisible();
+    await page.locator('.resume-documents > summary').click();
     await expect(page.locator('.private-files')).toBeVisible();
+    await page.locator('.resume-documents > summary').click();
     await screenshot(page, 'resume-worker-overview', 1440);
     await screenshot(page, 'resume-worker-overview', 390);
     await screenshot(page, 'resume-worker-overview', 320);
@@ -120,7 +124,8 @@ test('worker resume validates, retains a dirty draft, saves to API and survives 
       else await route.continue();
     });
     await page.getByRole('button', { name: 'O‘zgarishlarni saqlash', exact: true }).click();
-    await expect(page.getByText('Controlled profile save failure', { exact: true })).toBeVisible();
+    await expect(page.locator('.error-state')).toBeVisible();
+    await expect(page.getByText('Controlled profile save failure', { exact: true })).toHaveCount(0);
     await expect(experience).toHaveValue(draft);
     await page.unroute('**/api/v1/worker/profile');
     const savedResponse = page.waitForResponse(
@@ -499,7 +504,7 @@ test('both profiles support Russian dark mode on mobile, tablet and desktop', as
       for (const width of [320, 390, 768, 1440]) {
         await screenshot(page, `${name}-ru-dark`, width);
         if (name === 'profile-company' && width === 390) {
-          await page.locator('#org-saved-preview').screenshot({
+          await saveScreenshot(page.locator('#org-saved-preview'), {
             path: 'docs/screenshots/profile-company-preview-ru-dark-390.png',
           });
         }

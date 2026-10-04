@@ -904,7 +904,40 @@ export class OperationsService {
       )
     )
       throw new ForbiddenException();
-    return { verifications, disputes, tickets };
+    const [workers, organizations] = await Promise.all([
+      this.db.workerProfile.findMany({
+        where: {
+          id: {
+            in: verifications
+              .filter((item) => item.subjectType === 'WORKER')
+              .map((item) => item.subjectId),
+          },
+        },
+        select: { id: true, user: { select: { name: true } } },
+      }),
+      this.db.organization.findMany({
+        where: {
+          id: {
+            in: verifications
+              .filter((item) => item.subjectType === 'ORGANIZATION')
+              .map((item) => item.subjectId),
+          },
+        },
+        select: { id: true, name: true },
+      }),
+    ]);
+    const names = new Map([
+      ...workers.map((item) => [item.id, item.user.name] as const),
+      ...organizations.map((item) => [item.id, item.name] as const),
+    ]);
+    return {
+      verifications: verifications.map((item) => ({
+        ...item,
+        subjectName: names.get(item.subjectId) ?? null,
+      })),
+      disputes,
+      tickets,
+    };
   }
 
   async verify(user: AuthUser, id: string, input: VerificationReviewDto) {

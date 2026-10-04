@@ -19,6 +19,7 @@ import { FilesModule } from './files/files.module';
 import { MfaModule } from './mfa/mfa.module';
 import { TeamController } from './core/team.controller';
 import { MatchingController } from './core/matching.controller';
+import { localToolsEnabled } from './common/local-tools';
 @Global()
 @Module({
   providers: [PrismaService, PermissionsService, SessionGuard],
@@ -29,12 +30,7 @@ export class InfrastructureModule {}
 export class HealthController {
   constructor(private readonly db: PrismaService) {}
   @Get() health() {
-    return {
-      status: 'ok',
-      environment: process.env.APP_ENV,
-      version: '0.1.0',
-      sms: process.env.SMS_PROVIDER === 'local' ? 'LOCAL_MOCK' : 'NOT_CONFIGURED',
-    };
+    return { status: 'ok' };
   }
   @Get('live') live() {
     return { status: 'ok' };
@@ -47,7 +43,7 @@ export class HealthController {
     });
     try {
       await Promise.all([this.db.$queryRaw`SELECT 1`, redis.connect().then(() => redis.ping())]);
-      return { status: 'ready', database: 'up', redis: 'up' };
+      return { status: 'ready' };
     } catch {
       throw new ServiceUnavailableException('Dependencies unavailable');
     } finally {
@@ -66,9 +62,7 @@ export class HealthController {
     HealthController,
     TeamController,
     MatchingController,
-    ...(process.env.APP_ENV !== 'production' && process.env.NODE_ENV !== 'production'
-      ? [LocalInboxController]
-      : []),
+    ...(localToolsEnabled() ? [LocalInboxController] : []),
   ],
   providers: [AuthService, ProfileService, ShiftsService, ApiKeysService],
 })

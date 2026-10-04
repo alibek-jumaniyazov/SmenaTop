@@ -32,12 +32,12 @@ Test database allaqachon mavjud bo‘lsa `createdb` qadamini qaytarmang. `.env` 
 
 Docker mavjud bo‘lmagan ushbu ish stansiyasida haqiqiy PostgreSQL alohida `.local/postgres` klasterida `127.0.0.1:55432`, Redis esa `127.0.0.1:56379`da ishga tushirildi. `.env` shu instansiyalarga moslangan; bu mashinada `infra:up` va `createdb`ni qayta bajarish shart emas. Boshqa mashinada Docker yo‘li taqdim etilgan, ammo aynan ushbu sessiyada Docker image build bajarilmagan.
 
-| Xizmat                        | Manzil                                                                          |
-| ----------------------------- | ------------------------------------------------------------------------------- |
-| Web                           | [localhost:5173](http://localhost:5173)                                         |
-| API                           | [localhost:3000/api/v1/health/ready](http://localhost:3000/api/v1/health/ready) |
-| Swagger, faqat non-production | [localhost:3000/api/docs](http://localhost:3000/api/docs)                       |
-| API JSON                      | [localhost:3000/api/openapi.json](http://localhost:3000/api/openapi.json)       |
+| Xizmat                   | Manzil                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| Web, joriy lokal preview | [127.0.0.1:5174](http://127.0.0.1:5174)                                         |
+| API                      | [localhost:3000/api/v1/health/ready](http://localhost:3000/api/v1/health/ready) |
+
+Vite odatda `5173` portini ishlatadi; ushbu mashinada bu port boshqa loyihaga tegishli bo‘lgani uchun SmenaTop preview `5174` da. Terminaldagi haqiqiy manzil va serverning ruxsat etilgan origin sozlamasi mos bo‘lishi kerak. Swagger va OpenAPI uchun ochiq HTTP sahifalari olib tashlangan; contract serverda faylga eksport qilinadi.
 
 `dev` API, web va queue workerini birga ishga tushiradi. API TypeScriptni kompilyatsiya qilib ishga tushadi; backend kodi o‘zgarsa jarayonni qayta boshlang. Vite frontend va jobs watcher o‘zgarishlarni kuzatadi.
 
@@ -45,7 +45,7 @@ Windowsda `db:generate` yoki `build`dan oldin ishlab turgan API va jobs jarayonl
 
 ## Lokal demo
 
-Seed sintetik 3 tashkilot, 18 ishchi va 30 smena hamda turli to‘lov/davomat holatlarini yaratadi. Seed idempotent, mavjud ishlarni reset qilmaydi. Telefonlar local SMS adapterga bog‘langan; universal OTP yo‘q.
+Seed sintetik 3 tashkilot, 18 ishchi va 30 smena hamda turli to‘lov/davomat holatlarini yaratadi. Seed idempotent, mavjud ishlarni reset qilmaydi. Telefonlar local SMS adapterga bog‘langan. OTP odatda tasodifiy; vaqtinchalik local test uchun `.env`da `LOCAL_FIXED_OTP_ENABLED=true` qo‘yilsa, yangi so‘ralgan kod `123456` bo‘ladi. Bu parametr faqat `APP_ENV=local`, non-production va `SMS_PROVIDER=local` bilan ishlaydi; staging/productionda server bunday sozlamani rad etadi. Tasodifiy kodga qaytish uchun parametrni `false` qilib API serverini qayta boshlang.
 
 | Rol                      | Telefon                           | Kontekst                                              |
 | ------------------------ | --------------------------------- | ----------------------------------------------------- |
@@ -54,39 +54,38 @@ Seed sintetik 3 tashkilot, 18 ishchi va 30 smena hamda turli to‘lov/davomat ho
 | Ish beruvchi             | `+998900000003`                   | EXPIRED                                               |
 | Ishchilar                | `+998901000001` … `+998901000018` | Global ishchi profillari; oxirgisi tekshiruv kutmoqda |
 | Platform admin/moderator | `+998900000099`                   | Lokal verifikatsiya va boshqaruv                      |
-| Developer                | `+998900000098`                   | Texnik holat va himoyalangan local inbox              |
 | Manager                  | `+998900000010`                   | Tashkilot operatsiyalari                              |
 | Finance                  | `+998900000011`                   | Billing, maxfiy worker hujjatiga umumiy kirishsiz     |
 
 1. `/auth`da telefonni kiriting va kod so‘rang.
-2. Repository terminalida mos telefon uchun inboxni o‘qing:
+2. Vaqtinchalik umumiy kod yoqilgan bo‘lsa, `123456` kiriting. Odatdagi tasodifiy kod rejimida repository terminalida mos telefon uchun inboxni o‘qing:
 
    ```sh
    node --env-file=.env scripts/local-inbox.mjs +998900000001
    ```
 
-3. Qaytgan bir martalik kodni kiritib kontekstni tanlang. Developer UI ham `.env`dagi server kaliti bilan inboxni ko‘rsatadi; kalit frontend bundle ichida yo‘q.
+3. Qaytgan bir martalik kodni kiritib kontekstni tanlang. CLI lokal bazadan faqat tanlangan telefonning amaldagi kodini o‘qiydi; HTTP inbox, developer sahifasi yoki brauzerga server kalitini kiritish kerak emas. Bu buyruq `APP_ENV=local`, `SMS_PROVIDER=local` va non-production muhit bilan cheklangan. Kodni boshqalarga yubormang.
 4. Employer kabinetida yangi kelajak smenasini yarating va taqvimdagi qoralamani e’lon qiling. Alohida brauzer profilida worker sifatida kirib smenaga ariza bering. Employer arizalar sahifasida taklif yuboradi, worker qabul qiladi. Ikkala kabinetda tasdiqlangan smena paydo bo‘ladi; sahifani yangilaganda saqlanadi.
 5. Admin kabinetida pending verification/support/navbatlarni ko‘ring. Production privileged sessiya TOTP MFA talab qiladi; `/auth/mfa` setup, bir martalik recovery codes va challenge oqimini qo‘llaydi.
 6. Billingda LOCAL_MOCK aniq belgilangan. Mockni faqat sintetik tashkilotda sinang. Worker ish haqi bu to‘lovdan mustaqil; “ish beruvchi to‘langan deb belgilagan” va “ishchi qabulini tasdiqlagan” boshqa-boshqa holatlar.
 
-Lokal hujjatlar karantinga tushadi; real scanner bo‘lmasa avtomatik xavfsiz deb belgilanmaydi. Faqat non-production hujjat tekshiruvi route’i sabab va audit bilan mavjud. Productionda S3 va ClamAV kerak.
+Lokal hujjatlar karantinga tushadi; real scanner bo‘lmasa avtomatik xavfsiz deb belgilanmaydi. Texnik local endpointlar sukut bo‘yicha o‘chiq (`DEV_TOOLS_ENABLED=false`). Ular alohida yoqilganda ham faqat to‘g‘ridan-to‘g‘ri loopback server so‘rovi, server kaliti va tegishli sessiya/ruxsatlar bilan ishlaydi; brauzer va proxy orqali chaqiruv rad etiladi. Productionda bu vositalar yopiq, hujjatlar uchun S3 va ClamAV kerak.
 
 ## Buyruqlar
 
-| Buyruq                      | Vazifa                                                              |
-| --------------------------- | ------------------------------------------------------------------- |
-| `npx pnpm lint`             | ESLint                                                              |
-| `npx pnpm typecheck`        | Barcha workspace typelari                                           |
-| `npx pnpm test`             | API unit va frontend component testlari                             |
-| `npx pnpm build`            | Prisma client, API, jobs, web production build                      |
-| `npx pnpm test:integration` | Alohida PostgreSQL va haqiqiy Redis; API 3001ni vaqtincha boshlaydi |
-| `npx pnpm test:e2e`         | Ishlab turgan lokal API/web va seed bilan Playwright                |
-| `npx pnpm api:generate`     | Ishlab turgan API’dan OpenAPI + TypeScript client contract          |
-| `npx pnpm api:check`        | Contract drift tekshiruvi                                           |
-| `npx pnpm start`            | Root `.env` bilan kompilyatsiya qilingan API                        |
-| `npx pnpm start:jobs`       | Root `.env` bilan kompilyatsiya qilingan worker                     |
-| `npx pnpm infra:down`       | Containerlarni to‘xtatadi, volume o‘chirmaydi                       |
+| Buyruq                      | Vazifa                                                                 |
+| --------------------------- | ---------------------------------------------------------------------- |
+| `npx pnpm lint`             | ESLint                                                                 |
+| `npx pnpm typecheck`        | Barcha workspace typelari                                              |
+| `npx pnpm test`             | API unit va frontend component testlari                                |
+| `npx pnpm build`            | Prisma client, API, jobs, web production build                         |
+| `npx pnpm test:integration` | Alohida PostgreSQL va haqiqiy Redis; API 3001ni vaqtincha boshlaydi    |
+| `npx pnpm test:e2e`         | Ishlab turgan lokal API/web va seed bilan Playwright                   |
+| `npx pnpm api:generate`     | Kompilyatsiya qilingan serverdan offline OpenAPI + TypeScript contract |
+| `npx pnpm api:check`        | Contract drift tekshiruvi                                              |
+| `npx pnpm start`            | Root `.env` bilan kompilyatsiya qilingan API                           |
+| `npx pnpm start:jobs`       | Root `.env` bilan kompilyatsiya qilingan worker                        |
+| `npx pnpm infra:down`       | Containerlarni to‘xtatadi, volume o‘chirmaydi                          |
 
 Integratsion testlar asosiy ilova bazasini ishlatishni rad etadi. Playwright lokal seedga sintetik yozuvlar qo‘shadi; uni productionga yo‘naltirmang. Uchinchi test haqiqiy UI orqali smena yaratadi va tugagach sintetik bookingni bekor qiladi. Mutatsiyali testlar alohida test bazasida bajariladi; Playwright uchun ham alohida sintetik muhit ishlating.
 
@@ -100,3 +99,4 @@ Integratsion testlar asosiy ilova bazasini ishlatishni rad etadi. Playwright lok
 - [Qarorlar](docs/DECISIONS.md), [bajarilgan ishlar](docs/PROGRESS.md)
 - [2026-09-23 dizayn yangilanishi va mobil tekshiruvlar](docs/DESIGN_REFRESH_REPORT.md)
 - [Profil, nomzodlar va kabinet qulayliklari; joriy lokal manzil va tekshiruvlar](docs/PROFILE_UX_REPORT.md)
+- [Mobil qulaylik, API maxfiyligi va ruxsatlar xavfsizligi yangilanishi](docs/MOBILE_SECURITY_REPORT.md)

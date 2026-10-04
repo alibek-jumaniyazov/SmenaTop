@@ -57,7 +57,15 @@ export class ApiExceptionFilter implements ExceptionFilter {
         message = 'Amal boshqa yozuv yoki holat bilan to‘qnashdi';
       }
     }
-    if (status === 500)
+    if (status >= 500) {
+      // Never expose exception text, provider configuration, SQL or validation metadata
+      // from server failures, including explicitly thrown HttpException subclasses.
+      code = status === 503 ? 'SERVICE_UNAVAILABLE' : 'INTERNAL_ERROR';
+      message =
+        status === 503
+          ? 'Xizmat vaqtincha mavjud emas. Keyinroq qayta urinib ko‘ring.'
+          : 'Kutilmagan xatolik yuz berdi';
+      fieldErrors = {};
       process.stderr.write(
         JSON.stringify({
           level: 'error',
@@ -65,6 +73,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
           type: exception instanceof Error ? exception.name : 'unknown',
         }) + '\n',
       );
+    }
     res.status(status).json({ code, message, fieldErrors, requestId: req.requestId });
   }
 }

@@ -449,6 +449,55 @@
   border-radius: 18px;
   padding: 23px;
 }
+.resume-documents {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.resume-documents > summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 21px 23px;
+  min-height: 74px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 15px;
+  font-weight: 700;
+}
+.resume-documents > summary::-webkit-details-marker {
+  display: none;
+}
+.resume-documents > summary > svg {
+  color: var(--action);
+  flex-shrink: 0;
+}
+.resume-documents > summary > span {
+  flex: 1;
+}
+.resume-documents > summary::after {
+  content: '+';
+  font-size: 24px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.resume-documents[open] > summary::after {
+  content: '−';
+}
+.resume-documents > summary small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted);
+  font-weight: 400;
+}
+.resume-documents > .private-files {
+  margin-top: 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 18px 18px;
+}
 .resume-save-note > span {
   display: flex;
   align-items: center;
@@ -803,24 +852,46 @@
     font-size: 13px;
   }
   .resume-save-panel {
-    padding: 22px;
+    position: sticky;
+    z-index: 8;
+    bottom: calc(88px + env(safe-area-inset-bottom));
+    padding: 14px;
+    box-shadow: 0 -6px 28px #11152b14;
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
+    backdrop-filter: blur(12px);
   }
   .resume-save-actions {
-    flex-direction: column;
+    flex-direction: row;
     align-items: stretch;
+    gap: 8px;
   }
   .resume-save-actions .button {
-    width: 100%;
-    font-size: 13px;
+    width: auto;
+    flex: 1;
+    font-size: 12px;
     gap: 8px;
+    min-height: 46px;
+    padding: 10px 12px;
+  }
+  .resume-save-actions:has(> :nth-child(3)) > .button:first-child {
+    flex-basis: 100%;
   }
   .resume-save-actions .button svg {
     flex-shrink: 0;
   }
   .resume-save-note p {
-    font-size: 12px;
+    font-size: 11px;
+    margin: 6px 0 12px;
   }
   .resume-cancel {
+    font-size: 12px;
+    padding-inline: 10px;
+    flex: 0 1 40%;
+  }
+  .resume-documents > summary {
+    padding: 19px;
+  }
+  .resume-documents > summary small {
     font-size: 12px;
   }
   .resume-aside {

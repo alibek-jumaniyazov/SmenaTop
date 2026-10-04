@@ -154,7 +154,12 @@ describe('Worker resume draft and review workflow', () => {
     );
     state.fail = true;
     fireEvent.click(screen.getByRole('button', { name: 'O‘zgarishlarni saqlash' }));
-    expect(await screen.findByText('Save failed')).toBeVisible();
+    expect(
+      await screen.findByText(
+        'Ma’lumot o‘zgargan yoki amal hozir mavjud emas. Sahifadagi holatni tekshirib, qayta urinib ko‘ring.',
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText('Save failed')).toBeNull();
     expect(experience).toHaveValue('Yangi tajriba.');
     expect(state.bodies[0]).toMatchObject({
       submit: false,

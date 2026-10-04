@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -33,6 +33,7 @@ import { ApiError, api, useAction, useSession } from './api';
 import type { Shift } from './api';
 import { useNotificationsStream } from './notifications';
 import { clearProfileDrafts } from './profile-drafts';
+import { canOpenAdminPage } from './workspace-access';
 
 export function Logo({ onClick }: { onClick?: () => void } = {}) {
   return (
@@ -287,6 +288,28 @@ export function Empty({
 }
 export function ErrorState({ error, retry }: { error: unknown; retry?: () => void }) {
   const { t } = useTranslation();
+  const code = error instanceof ApiError ? error.code : '';
+  const status = error instanceof ApiError ? error.status : 0;
+  const messageKey =
+    code === 'OTP_INVALID_OR_EXPIRED'
+      ? 'requestOtpInvalid'
+      : code === 'MFA_REQUIRED'
+        ? 'requestMfaRequired'
+        : code === 'SHIFT_FULL'
+          ? 'requestShiftFull'
+          : status === 429
+            ? 'requestRateLimit'
+            : status === 409
+              ? 'requestConflict'
+              : status === 403
+                ? 'requestForbidden'
+                : status === 401
+                  ? 'expired'
+                  : status === 404
+                    ? 'requestNotFound'
+                    : status === 400 || status === 422
+                      ? 'requestInvalid'
+                      : 'requestFailed';
   return (
     <div className="error-state" role="alert">
       <CircleAlert size={20} />
@@ -298,7 +321,7 @@ export function ErrorState({ error, retry }: { error: unknown; retry?: () => voi
               ? t('expired')
               : t('error')}
         </strong>
-        <p>{error instanceof Error ? error.message : String(error)}</p>
+        <p>{t(messageKey)}</p>
         {retry && (
           <button className="button button-outline compact" onClick={retry}>
             {t('retry')}
@@ -628,13 +651,14 @@ export function Shell({
   zone,
   children,
 }: {
-  zone: 'worker' | 'employer' | 'admin' | 'developer';
+  zone: 'worker' | 'employer' | 'admin';
   children: ReactNode;
 }) {
   const { t } = useTranslation();
   const session = useSession();
   useNotificationsStream(!!session.data);
   const navigate = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [logoutError, setLogoutError] = useState<unknown>();
@@ -678,19 +702,24 @@ export function Shell({
             [Bell, 'notifications', '/notifications'],
             [LayoutDashboard, 'analytics', '/analytics'],
           ]
-        : zone === 'admin'
-          ? [
-              [ShieldCheck, 'queue', ''],
-              [Wallet, 'billing', '/billing'],
-              [MessageSquare, 'support', '/support'],
-              [SlidersHorizontal, 'catalogs', '/catalogs'],
-              [Clock3, 'audit', '/audit'],
-              [LayoutDashboard, 'system', '/health'],
-            ]
-          : [
-              [LayoutDashboard, 'system', ''],
-              [MessageSquare, 'devInbox', '/inbox'],
-            ];
+        : [
+            [ShieldCheck, 'queue', ''],
+            [Wallet, 'billing', '/billing'],
+            [MessageSquare, 'support', '/support'],
+            [SlidersHorizontal, 'catalogs', '/catalogs'],
+          ];
+  const visibleLinks = links.filter(
+    ([, , url]) =>
+      zone !== 'admin' ||
+      canOpenAdminPage(session.data?.user.platformPermissions ?? [], `/admin${url}`),
+  );
+  const currentPage = [...visibleLinks]
+    .sort((a, b) => String(b[2]).length - String(a[2]).length)
+    .find(
+      ([, , url]) =>
+        location.pathname === `/${zone}${url}` ||
+        (!!url && location.pathname.startsWith(`/${zone}${url}/`)),
+    );
   const sidebarContent = () => (
     <>
       <div className="sidebar-brand">
@@ -707,7 +736,7 @@ export function Shell({
         <SlidersHorizontal size={15} />
       </Link>
       <nav aria-label={t('navigation')}>
-        {links.map(([Icon, key, url]) => {
+        {visibleLinks.map(([Icon, key, url]) => {
           const NavIcon = Icon as typeof CalendarDays;
           return (
             <NavLink end to={`/${zone}${url}`} key={String(key)} onClick={() => setExpanded(false)}>
@@ -773,7 +802,10 @@ export function Shell({
           </button>
           <span className="workspace-breadcrumb">
             <span className="workspace-zone-dot" />
-            {t(zone)} <span className="header-separator">/</span> <strong>SmenaTop</strong>
+            <span className="workspace-current-page">
+              {t(currentPage ? String(currentPage[1]) : zone)}
+            </span>{' '}
+            <span className="header-separator">/</span> <strong>SmenaTop</strong>
           </span>
           <div>
             <span className="timezone-desktop">UTC+5 · UZS</span>

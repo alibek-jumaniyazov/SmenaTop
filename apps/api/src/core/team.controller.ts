@@ -41,15 +41,32 @@ export class TeamController {
         .strict(),
       body,
     );
-    const issuer = await this.permissions.permissions(user.id, parse(uuid, org));
-    if (!issuer.permissions.includes('member.invite')) throw new ForbiddenException();
+    parse(uuid, org);
     return this.db.atomic(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "Organization" WHERE id=${org}::uuid FOR UPDATE`;
+      // Recheck after taking the same lock used for membership changes and transfers.
+      const issuer = await this.permissions.permissions(user.id, org);
+      if (!issuer.permissions.includes('member.invite')) throw new ForbiddenException();
       const target = await tx.organizationMembership.findFirstOrThrow({
         where: { id: parse(uuid, id), organizationId: org },
       });
       if (target.role === 'OWNER')
         throw new ForbiddenException('Owner changes require explicit ownership transfer');
+      const scopedIssuer = issuer.member.role === 'MANAGER' || issuer.member.branchIds.length > 0;
+      if (
+        scopedIssuer &&
+        (!target.branchIds.length ||
+          target.branchIds.some((branch) => !issuer.member.branchIds.includes(branch)))
+      )
+        throw new ForbiddenException('Cannot manage a member outside your branch scope');
+      const targetRole = target.customRoleId
+        ? await tx.organizationRole.findFirstOrThrow({
+            where: { id: target.customRoleId, organizationId: org },
+          })
+        : null;
+      const targetPermissions = targetRole?.permissions ?? ROLE_PERMISSIONS[target.role] ?? [];
+      if (targetPermissions.some((permission) => !issuer.permissions.includes(permission)))
+        throw new ForbiddenException('Cannot manage privileges above your own');
       const role = input.role ?? target.role;
       let granted = ROLE_PERMISSIONS[role] ?? [];
       const customRoleId = role === 'CUSTOM' ? (input.customRoleId ?? target.customRoleId) : null;
@@ -72,8 +89,8 @@ export class TeamController {
       )
         throw new ForbiddenException('Invalid branch scope');
       if (
-        issuer.member.branchIds.length &&
-        branchIds.some((b) => !issuer.member.branchIds.includes(b))
+        scopedIssuer &&
+        (!branchIds.length || branchIds.some((b) => !issuer.member.branchIds.includes(b)))
       )
         throw new ForbiddenException('Cannot expand branch scope');
       if (input.status === 'ACTIVE' && target.status !== 'ACTIVE') {

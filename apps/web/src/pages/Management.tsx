@@ -1,17 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import {
-  Activity,
-  ArrowRight,
-  Building2,
-  CalendarDays,
-  ShieldCheck,
-  Users,
-} from 'lucide-react';
+import { Activity, ArrowRight, Building2, CalendarDays, Users } from 'lucide-react';
 import { useAction, useApi } from '../api';
 import type { Catalog, Organization } from '../api';
-import { Empty, Feedback, PageHeading, QueryState, Status, dateTime } from '../components';
+import { Empty, Feedback, PageHeading, QueryState, Status } from '../components';
 import { useOrganization } from './Employer';
 import { TextForm } from './Operations';
 
@@ -96,6 +89,21 @@ export function AnalyticsPage() {
 interface OrgWithRoles extends Organization {
   roles?: { id: string; name: string; permissions: string[] }[];
 }
+const permissionLabels: Record<string, [string, string]> = {
+  'shift.read': ['Smenalarni ko‘rish', 'Просмотр смен'],
+  'shift.create': ['Smena yaratish va tahrirlash', 'Создание и изменение смен'],
+  'shift.publish': ['Smena e’lon qilish', 'Публикация смен'],
+  'application.review': ['Nomzodlarni ko‘rib chiqish', 'Рассмотрение кандидатов'],
+  'attendance.approve': ['Davomatni tasdiqlash', 'Подтверждение явки'],
+  'billing.read': ['Hisob va to‘lovlarni ko‘rish', 'Просмотр счетов и платежей'],
+  'billing.manage': ['To‘lovlarni boshqarish', 'Управление платежами'],
+  'wage.read': ['Ish haqini ko‘rish', 'Просмотр заработка'],
+  'wage.manage': ['Ish haqini boshqarish', 'Управление заработком'],
+  'member.invite': ['Jamoaga taklif qilish', 'Приглашение в команду'],
+  'branch.manage': ['Filiallarni boshqarish', 'Управление филиалами'],
+  'organization.manage': ['Tashkilot profilini boshqarish', 'Управление профилем организации'],
+  'analytics.read': ['Hisobotlarni ko‘rish', 'Просмотр отчётов'],
+};
 export function TeamPage() {
   const { t, i18n } = useTranslation();
   const membership = useOrganization();
@@ -154,9 +162,13 @@ export function TeamPage() {
                     <div className="panel" key={item.id}>
                       <h3>{item.name}</h3>
                       <div className="permission-list">
-                        {item.permissions.map((permission) => (
-                          <code key={permission}>{permission}</code>
-                        ))}
+                        {item.permissions
+                          .filter((permission) => Object.hasOwn(permissionLabels, permission))
+                          .map((permission) => (
+                            <span key={permission}>
+                              {permissionLabels[permission]![i18n.language === 'ru' ? 1 : 0]}
+                            </span>
+                          ))}
                       </div>
                     </div>
                   ))
@@ -281,22 +293,24 @@ export function TeamPage() {
               <fieldset>
                 <legend>{t('permissions')}</legend>
                 <div className="permission-checks">
-                  {membership?.permissions.map((permission) => (
-                    <label className="check-label" key={permission}>
-                      <input
-                        type="checkbox"
-                        checked={permissions.includes(permission)}
-                        onChange={(event) =>
-                          setPermissions(
-                            event.target.checked
-                              ? [...permissions, permission]
-                              : permissions.filter((p) => p !== permission),
-                          )
-                        }
-                      />
-                      <code>{permission}</code>
-                    </label>
-                  ))}
+                  {membership?.permissions
+                    .filter((permission) => Object.hasOwn(permissionLabels, permission))
+                    .map((permission) => (
+                      <label className="check-label" key={permission}>
+                        <input
+                          type="checkbox"
+                          checked={permissions.includes(permission)}
+                          onChange={(event) =>
+                            setPermissions(
+                              event.target.checked
+                                ? [...permissions, permission]
+                                : permissions.filter((p) => p !== permission),
+                            )
+                          }
+                        />
+                        <span>{permissionLabels[permission]![i18n.language === 'ru' ? 1 : 0]}</span>
+                      </label>
+                    ))}
                 </div>
               </fieldset>
               <button className="button button-primary" disabled={customRole.isPending}>
@@ -311,122 +325,56 @@ export function TeamPage() {
   );
 }
 export { OrganizationSettings } from './OrganizationProfile';
-interface Audit {
-  id: string;
-  action: string;
-  actorId: string | null;
-  resourceId: string | null;
-  reason: string | null;
-  createdAt: string;
-}
-export function AdminData({ kind }: { kind: 'audit' | 'catalogs' | 'health' }) {
-  const { t, i18n } = useTranslation();
-  const query = useApi<unknown>(
-    kind === 'health' ? '/health' : kind === 'catalogs' ? '/admin/catalog' : '/admin/audit',
-  );
-  const [filter, setFilter] = useState('');
+export function AdminData() {
+  const { t } = useTranslation();
+  const query = useApi<Catalog>('/admin/catalog');
   const [active, setActive] = useState(true);
   return (
     <>
-      <PageHeading title={t(kind)} text={kind === 'catalogs' ? undefined : t('readOnly')} />
+      <PageHeading title={t('catalogs')} />
       <QueryState pending={query.isPending} error={query.error} retry={() => void query.refetch()}>
-        {kind === 'audit' ? (
-          <>
-            <label className="audit-search">
-              {t('search')}
-              <input value={filter} onChange={(event) => setFilter(event.target.value)} />
-            </label>
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>{t('date')}</th>
-                    <th>{t('action')}</th>
-                    <th>{t('actor')}</th>
-                    <th>{t('reason')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {((query.data as Audit[]) || [])
-                    .filter((item) =>
-                      `${item.action} ${item.actorId} ${item.reason}`
-                        .toLowerCase()
-                        .includes(filter.toLowerCase()),
-                    )
-                    .map((item) => (
-                      <tr key={item.id}>
-                        <td>{dateTime(item.createdAt, i18n.language)}</td>
-                        <td>
-                          <code>{item.action}</code>
-                          <small>{item.resourceId?.slice(0, 12)}</small>
-                        </td>
-                        <td>
-                          <code>{item.actorId?.slice(0, 12) || '—'}</code>
-                        </td>
-                        <td>{item.reason || '—'}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : kind === 'catalogs' ? (
-          <div className="split-content">
-            <div>
-              {(['cities', 'categories', 'skills'] as const).map((key) => (
-                <section className="panel catalog-panel" key={key}>
-                  <h2>
-                    {t(key === 'cities' ? 'city' : key === 'categories' ? 'category' : 'skills')}
-                  </h2>
-                  <div className="record-list">
-                    {(query.data as Catalog)?.[key]?.map((item) => (
-                      <div className="catalog-row" key={item.id}>
-                        <span>{item.nameUz}</span>
-                        <span>{item.nameRu}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-            <section className="panel form-stack align-start">
-              <h2>{t('city')}</h2>
-              <label className="check-label">
-                <input
-                  type="checkbox"
-                  checked={active}
-                  onChange={(event) => setActive(event.target.checked)}
-                />
-                {t('status_ACTIVE')}
-              </label>
-              <TextForm
-                path="/admin/catalog/cities"
-                label={t('save')}
-                fields={[
-                  { name: 'code', label: 'catalogCode' },
-                  { name: 'nameUz', label: 'nameUz' },
-                  { name: 'nameRu', label: 'nameRu' },
-                  { name: 'reason', label: 'reason', type: 'textarea' },
-                ]}
-                body={{ active }}
+        <div className="split-content">
+          <div>
+            {(['cities', 'categories', 'skills'] as const).map((key) => (
+              <section className="panel catalog-panel" key={key}>
+                <h2>
+                  {t(key === 'cities' ? 'city' : key === 'categories' ? 'category' : 'skills')}
+                </h2>
+                <div className="record-list">
+                  {query.data?.[key]?.map((item) => (
+                    <div className="catalog-row" key={item.id}>
+                      <span lang="uz">{item.nameUz}</span>
+                      <span lang="ru">{item.nameRu}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+          <section className="panel form-stack align-start">
+            <h2>{t('city')}</h2>
+            <label className="check-label">
+              <input
+                type="checkbox"
+                checked={active}
+                onChange={(event) => setActive(event.target.checked)}
               />
-            </section>
-          </div>
-        ) : (
-          <div className="health-grid">
-            {Object.entries((query.data || {}) as Record<string, unknown>)
-              .filter(([, value]) => typeof value !== 'object')
-              .map(([key, value]) => (
-                <section className="panel" key={key}>
-                  <Activity size={23} />
-                  <h2>{t(key, { defaultValue: key })}</h2>
-                  <strong>{String(value)}</strong>
-                </section>
-              ))}
-          </div>
-        )}
+              {t('status_ACTIVE')}
+            </label>
+            <TextForm
+              path="/admin/catalog/cities"
+              label={t('save')}
+              fields={[
+                { name: 'code', label: 'catalogCode' },
+                { name: 'nameUz', label: 'nameUz' },
+                { name: 'nameRu', label: 'nameRu' },
+                { name: 'reason', label: 'reason', type: 'textarea' },
+              ]}
+              body={{ active }}
+            />
+          </section>
+        </div>
       </QueryState>
     </>
   );
 }
-void ShieldCheck;

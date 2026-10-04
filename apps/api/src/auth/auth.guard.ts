@@ -9,8 +9,11 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthRequest } from './current-user';
 export const hash = (value: string) => createHash('sha256').update(value).digest('hex');
-export const safeEqual = (a: string, b: string) =>
-  a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+export const safeEqual = (a: string, b: string) => {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+};
 @Injectable()
 export class SessionGuard implements CanActivate {
   constructor(private readonly db: PrismaService) {}
@@ -35,7 +38,7 @@ export class SessionGuard implements CanActivate {
       ),
     ];
     if (process.env.APP_ENV === 'production' && permissions.length && !session.mfaVerifiedAt)
-      throw new ForbiddenException('MFA_REQUIRED');
+      throw new ForbiddenException({ code: 'MFA_REQUIRED', message: 'MFA_REQUIRED' });
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const csrf = req.header('x-csrf-token');
       if (!csrf || !safeEqual(hash(csrf), session.csrfHash))

@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:net';
 
 if (!process.env.TEST_DATABASE_URL)
   throw new Error(
@@ -9,10 +10,23 @@ if (
   process.env.APP_ENV === 'production'
 )
   throw new Error('Integration tests require a distinct non-production database.');
+const testPort = Number(process.env.TEST_API_PORT || 3001);
+if (!Number.isInteger(testPort) || testPort < 1024 || testPort > 65535)
+  throw new Error('TEST_API_PORT must be an unprivileged TCP port.');
+// Never send integration mutations to another project's existing listener.
+await new Promise((resolve, reject) => {
+  const probe = createServer();
+  probe.once('error', () =>
+    reject(new Error(`Test port ${testPort} is busy; choose TEST_API_PORT.`)),
+  );
+  probe.listen(testPort, '127.0.0.1', () => probe.close(resolve));
+});
+const testApi = `http://127.0.0.1:${testPort}/api/v1`;
 const env = {
   ...process.env,
   DATABASE_URL: process.env.TEST_DATABASE_URL,
-  PORT: '3001',
+  PORT: String(testPort),
+  TEST_API_URL: testApi,
   APP_ENV: 'local',
   NODE_ENV: 'test',
   QUEUE_NAMESPACE: 'smenatop-integration-test',
@@ -47,7 +61,7 @@ try {
   for (let attempt = 0; attempt < 180; attempt++) {
     if (api.exitCode !== null) throw new Error(`Test API exited: ${output}`);
     try {
-      const response = await fetch('http://127.0.0.1:3001/api/v1/health/live');
+      const response = await fetch(`${testApi}/health/live`);
       if (response.ok) {
         ready = true;
         break;

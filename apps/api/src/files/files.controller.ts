@@ -20,6 +20,7 @@ import { CurrentUser } from '../auth/current-user';
 import type { AuthUser } from '../auth/current-user';
 import { FilesService } from './files.service';
 import type { UploadedDocument } from './files.service';
+import { LocalToolsGuard } from '../common/local-tools';
 
 class LocalFileReviewDto {
   @ApiProperty({ enum: ['CLEAN', 'REJECTED'] }) @IsIn(['CLEAN', 'REJECTED']) status!:
@@ -77,7 +78,7 @@ export class FilesController {
 }
 @ApiTags('Local document review')
 @ApiCookieAuth()
-@UseGuards(SessionGuard)
+@UseGuards(LocalToolsGuard, SessionGuard)
 @Controller('developer/files')
 export class LocalFilesController {
   constructor(private readonly files: FilesService) {}

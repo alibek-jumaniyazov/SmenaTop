@@ -24,6 +24,7 @@ import {
   SimulateDto,
 } from './billing.dto';
 import { PaymeService } from './payme.service';
+import { LocalToolsGuard } from '../common/local-tools';
 
 @ApiTags('Billing')
 @Controller()
@@ -92,7 +93,7 @@ export class BillingController {
 
 @ApiTags('Local provider simulator')
 @ApiCookieAuth()
-@UseGuards(SessionGuard)
+@UseGuards(LocalToolsGuard, SessionGuard)
 @Controller('developer/payments')
 export class LocalPaymentSimulatorController {
   constructor(private readonly billing: BillingService) {}

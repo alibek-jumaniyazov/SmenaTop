@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { SessionGuard } from './auth.guard';
 import { CurrentUser, type AuthUser } from './current-user';
 import { parse, uuid } from '../common/validation';
+import { LocalToolsGuard } from '../common/local-tools';
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
@@ -60,6 +61,7 @@ export class AuthController {
   }
 }
 @ApiTags('Local developer inbox')
+@UseGuards(LocalToolsGuard)
 @Controller('developer')
 export class LocalInboxController {
   constructor(private readonly auth: AuthService) {}

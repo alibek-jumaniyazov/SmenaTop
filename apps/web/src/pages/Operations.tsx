@@ -646,16 +646,6 @@ export function BillingPage({ organizationId }: { organizationId: string }) {
           })}
         </div>
         <Feedback error={checkout.error} success={checkout.isSuccess} />
-        {checkout.data?.attempt && selectedProvider === 'MOCK' && (
-          <div className="panel">
-            <p className="notice">{t('mockPayment')}</p>
-            <Action
-              path={`/developer/payments/${checkout.data.attempt.id}/simulate`}
-              label={t('simulateSuccess')}
-              body={{ scenario: 'success' }}
-            />
-          </div>
-        )}
         <div className="section-heading compact-heading">
           <h2>{t('invoices')}</h2>
         </div>
@@ -689,13 +679,6 @@ export function BillingPage({ organizationId }: { organizationId: string }) {
                         <div key={attempt.id}>
                           <span>{attempt.provider} </span>
                           <Status value={attempt.status} />
-                          {attempt.provider === 'MOCK' && attempt.status === 'PENDING' && (
-                            <Action
-                              path={`/developer/payments/${attempt.id}/simulate`}
-                              label={t('simulateSuccess')}
-                              body={{ scenario: 'success' }}
-                            />
-                          )}
                         </div>
                       ))}
                     </td>

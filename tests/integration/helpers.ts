@@ -18,7 +18,13 @@ export class Client {
       method,
       headers: {
         'content-type': 'application/json',
-        Origin: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
+        // Developer tools deliberately reject all browser/proxy requests.
+        ...(path.startsWith('/developer/')
+          ? {}
+          : { Origin: process.env.WEB_ORIGIN ?? 'http://localhost:5173' }),
+        ...(/^\/developer\/(payments|files)\//.test(path)
+          ? { 'x-dev-key': process.env.LOCAL_DEV_KEY! }
+          : {}),
         ...(this.cookie ? { cookie: this.cookie } : {}),
         ...(this.csrf ? { 'x-csrf-token': this.csrf } : {}),
         ...headers,

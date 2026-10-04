@@ -1,0 +1,26 @@
+Generated with built-in tools.image_gen__imagegen. Native output dimensions: 1448x1086. Sources preserved without overwriting.
+
+SOURCE: 7_LightMix.jpg
+FINAL: 7_photoreal.png
+PROMPT:
+Use case: style-transfer. Asset type: architectural interior photograph, photorealistic conversion of an existing render.
+Input image: sole edit target is 7_LightMix.jpg. Transform this exact view into a convincing natural photograph of the completed real dining room.
+Composition/framing: preserve the source exactly, landscape 4:3, requested 3200x2400 full resolution if available. Keep the same camera position, perspective, room geometry, framing and crop; retain the entire foreground trees, chair and chandelier wherever visible in the original.
+Invariants: faithfully preserve every architectural molding and ceiling ornament, all walls and wood panels, all chandeliers and sconces and their locations, rear wall TV, table, all chairs and their exact counts and placement, carpet, herringbone floor, rose vases, dishes, glassware, art, gold wall sculpture and both foreground potted trees. Preserve original object shapes, colors, layout, scale and proportions. This is photographic realism enhancement only, not interior redesign.
+Lighting/mood: realistic diffused daylight entering behind the camera, brighter softly balanced interior exposure with protected whites and highlights; warm practical lamps with small natural glows, realistic ambient bounce and contact shadows. Keep neutral-warm ivory and taupe color balance without yellow cast; natural photographic dynamic range and smooth highlight rolloff.
+Materials/textures: subtle physically believable painted plaster and fine molding relief; actual upholstery fiber weave and soft cushion seams; real wood grain and floorboard variation; gold metal with nuanced brushed/polished micro-roughness and accurate reflections; correct glass thickness, refraction, water and crystal caustics; naturally irregular living leaves, stems and rose petals. Preserve a clean newly completed luxury interior.
+Style/medium: careful professional full-frame architectural photography, natural lens rendering, realistic edge definition and depth, fine optical detail without artificial sharpening. Remove the synthetic flatness and repetitive procedural look of CGI while keeping the original design unchanged.
+Avoid: any added/removed or moved object, people, changed framing, camera change, new decor, redesign, text, logos, watermark, exaggerated HDR, artificial bloom, CGI/plastic surfaces, visible dirt, grain overlays, oversaturation or oversharpening.
+
+SOURCE: 8_LightMix.jpg
+FINAL: 8_photoreal.png
+PROMPT:
+Use case: style-transfer. Asset type: architectural interior detail photograph, photorealistic conversion of an existing render.
+Input image: sole edit target is 8_LightMix.jpg. Transform this exact dining-room wall detail into a convincing natural photograph of the real completed interior.
+Composition/framing: preserve the source exactly, landscape 4:3, requested 3200x2400 full resolution if available. Keep same camera position, wall perspective, focal composition, framing and original crop, including the foreground chairs and tabletop cropped at the image edges.
+Invariants: preserve the exact gold wall sculpture with the same number, shapes, sizes and placements of all flower/dish and fishlike elements; preserve every wall panel and molding, left sconce and visible partial chandelier, all dining chairs, table edge, rose vase, dishes, bottles, candle holders and glassware. Keep all objects, architecture, scale, positions, color palette, proportions and depth relationships unchanged. This is photographic realism enhancement only, not redesign.
+Lighting/mood: soft natural window daylight with neutral-warm ivory white balance, naturally balanced brighter exposure without washing out the wall relief, soft ambient bounce and contact shadows, warm practical lamp glow. Keep accurate shadow directions. Smooth natural highlights and realistic photographic dynamic range, no yellow color cast.
+Materials/textures: believable fine painted plaster and molding relief; nuanced polished brass/gold reflection and microscopic roughness in the wall sculpture while preserving its sculpted geometry; actual upholstery fabric weave and soft seams, tabletop reflections with realistic falloff, accurate glass thickness/refraction, clear water and botanically real white rose petals and green stems. Keep the interior elegantly clean.
+Style/medium: professional full-frame architectural detail photograph. Wall sculpture is the focus; retain the source's gentle optical foreground softness with realistic lens depth of field, no exaggerated blur. Natural fine detail, nuanced surface imperfections invisible at room scale, authentic physical material response.
+Avoid: added/removed/rearranged objects or sculpture elements, any altered chair count, new decor, changed camera or crop, people, text, logos, watermark, artificial CGI smoothness, plastic flowers, exaggerated HDR, dirty surfaces, fake film-grain overlays, oversaturation or oversharpening.
+

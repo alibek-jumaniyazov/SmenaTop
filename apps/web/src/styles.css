@@ -1322,18 +1322,6 @@ legend {
   font-size: 22px;
   margin: 0;
 }
-.data-code {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 11px;
-  line-height: 1.7;
-  max-height: 440px;
-  overflow: auto;
-  background: var(--surface-soft);
-  padding: 15px;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-}
 .preserve-lines {
   white-space: pre-line;
 }
@@ -1751,16 +1739,6 @@ details > summary {
   font-size: 29px;
   letter-spacing: 12px;
   text-align: center;
-}
-.dev-inbox {
-  margin-top: 20px;
-  border-top: 1px solid var(--border);
-}
-.dev-inbox summary {
-  font-size: 10px;
-}
-.dev-inbox .button {
-  margin-top: 12px;
 }
 .context-grid {
   display: grid;
@@ -2697,14 +2675,14 @@ td .status {
   gap: 30px;
 }
 .verification-row h3 {
-  font-family: monospace;
-  font-size: 13px;
+  font-family: inherit;
+  font-size: 17px;
   letter-spacing: 0;
   margin: 12px 0;
   overflow-wrap: anywhere;
 }
 .verification-row p {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
 }
 .queue-toolbar {
@@ -4043,7 +4021,7 @@ td .status {
     gap: 22px;
   }
   .verification-row h3 {
-    font-size: 12px;
+    font-size: 16px;
   }
   .verification-row .form-actions {
     width: 100%;

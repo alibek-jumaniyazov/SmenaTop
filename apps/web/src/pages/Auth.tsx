@@ -1,15 +1,15 @@
-import { localToolsEnabled } from '../environment';
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Building2, Code2, ShieldCheck, Smartphone, Users } from 'lucide-react';
+import { ArrowRight, Building2, ShieldCheck, Smartphone, Users } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, setCsrf, useAction, useSession } from '../api';
 import type { Session } from '../api';
-import { ErrorState, Feedback, Logo, PageHeading, PublicLayout, QueryState } from '../components';
+import { Feedback, Logo, PageHeading, PublicLayout, QueryState } from '../components';
+import { adminHome } from '../workspace-access';
 
 export const phoneSchema = z.object({ phone: z.string().regex(/^\+[1-9]\d{7,14}$/) });
 export const otpSchema = z.object({ code: z.string().regex(/^\d{6}$/) });
@@ -20,9 +20,6 @@ export function AuthPage() {
   const qc = useQueryClient();
   const [challenge, setChallenge] = useState<string>();
   const [phone, setPhone] = useState('');
-  const [devKey, setDevKey] = useState('');
-  const [inbox, setInbox] = useState<unknown>();
-  const [inboxError, setInboxError] = useState<unknown>();
   const request = useAction<{ challengeId: string; expiresAt: string }>('/auth/otp/request');
   const verify = useAction<Session>('/auth/otp/verify');
   const phoneForm = useForm({
@@ -53,6 +50,7 @@ export function AuthPage() {
           </div>
           <h2>{challenge ? t('otp') : t('login')}</h2>
           <p>{challenge ? t('otpSent') : t('authText')}</p>
+          {challenge && <p className="auth-phone">{phone}</p>}
           {!challenge ? (
             <form
               className="form-stack"
@@ -126,10 +124,14 @@ export function AuthPage() {
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   maxLength={6}
+                  aria-invalid={!!otpForm.formState.errors.code}
+                  aria-describedby={otpForm.formState.errors.code ? 'otp-error' : undefined}
                   {...otpForm.register('code')}
                 />
                 {otpForm.formState.errors.code && (
-                  <span className="field-error">{t('invalidCode')}</span>
+                  <span id="otp-error" className="field-error" role="alert">
+                    {t('invalidCode')}
+                  </span>
                 )}
               </label>
               <button className="button button-primary" disabled={verify.isPending}>
@@ -153,42 +155,6 @@ export function AuthPage() {
             <ShieldCheck size={18} />
             <span>{t('phoneVerified')}</span>
           </div>
-          {localToolsEnabled && challenge && (
-            <details className="dev-inbox">
-              <summary>{t('devInbox')}</summary>
-              <p className="small">{t('devHint')}</p>
-              <label>
-                {t('devKey')}
-                <input
-                  type="password"
-                  autoComplete="off"
-                  value={devKey}
-                  onChange={(event) => setDevKey(event.target.value)}
-                />
-              </label>
-              <button
-                className="button button-outline compact"
-                onClick={async () => {
-                  try {
-                    setInboxError(undefined);
-                    setInbox(
-                      await api(`/developer/inbox?phone=${encodeURIComponent(phone)}`, {
-                        headers: { 'x-dev-key': devKey },
-                      }),
-                    );
-                  } catch (error) {
-                    setInboxError(error);
-                  }
-                }}
-              >
-                {t('loadInbox')}
-              </button>
-              {inbox !== undefined && (
-                <pre className="data-code">{JSON.stringify(inbox, null, 2)}</pre>
-              )}
-              {inboxError !== undefined && <ErrorState error={inboxError} />}
-            </details>
-          )}
         </section>
       </div>
     </PublicLayout>
@@ -234,26 +200,13 @@ export function ContextPage() {
               <p>{t('forBusiness')}</p>
               <ArrowRight />
             </Link>
-            {query.data?.user.platformPermissions.some((p) => !p.startsWith('developer.')) && (
+            {adminHome(query.data?.user.platformPermissions ?? []) && (
               <Link
                 className="context-card"
-                to={
-                  query.data?.user.platformPermissions.includes('verification.review')
-                    ? '/admin'
-                    : query.data?.user.platformPermissions.includes('billing.reconcile')
-                      ? '/admin/billing'
-                      : '/admin/support'
-                }
+                to={adminHome(query.data?.user.platformPermissions ?? [])!}
               >
                 <ShieldCheck />
                 <h2>{t('admin')}</h2>
-                <ArrowRight />
-              </Link>
-            )}
-            {localToolsEnabled && (
-              <Link className="context-card" to="/developer">
-                <Code2 />
-                <h2>{t('developer')}</h2>
                 <ArrowRight />
               </Link>
             )}

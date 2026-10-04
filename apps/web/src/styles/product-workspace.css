@@ -11,8 +11,10 @@
   padding: 2px 1px 15px;
   margin-bottom: 14px;
   scrollbar-width: thin;
+  scroll-snap-type: x proximity;
 }
 .inbox-tabs button {
+  scroll-snap-align: start;
   display: flex;
   align-items: center;
   gap: 13px;
@@ -753,12 +755,14 @@
     gap: 8px;
   }
   .inbox-card-actions .button {
-    min-height: 46px;
-    font-size: 11px;
-    padding: 11px 13px;
+    min-height: 48px;
+    font-size: 12px;
+    padding: 11px 14px;
+    flex: 1;
   }
   .inbox-card-actions .button:first-child {
     width: 100%;
+    flex-basis: 100%;
   }
   .inbox-offer.offer-panel {
     flex-direction: column;
@@ -769,8 +773,44 @@
     font-size: 12px;
   }
   .candidate-resume-dialog.modal {
-    width: calc(100% - 24px);
-    padding: 21px;
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top));
+    margin: auto 0 0;
+    border-radius: 24px 24px 0 0;
+    padding: 0 21px max(24px, env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .candidate-resume-dialog .modal-head {
+    position: sticky;
+    z-index: 2;
+    top: 0;
+    background: var(--surface);
+    padding-top: 18px;
+    padding-bottom: 14px;
+    margin-bottom: 24px;
+  }
+  .candidate-resume-dialog .modal-head .icon-button {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    border-radius: 50%;
+    background: var(--surface-soft);
+  }
+  .inbox-card .inbox-job-meta {
+    margin-block: 15px;
+    padding-block: 13px;
+  }
+  .inbox-card .inbox-profile-summary p {
+    font-size: 13px;
+  }
+  .inbox-result-count button {
+    min-height: 44px;
+    padding-inline: 8px;
+  }
+  .hub-quick-link {
+    min-height: 98px;
   }
   .candidate-resume-dialog .modal-head h2 {
     font-size: 21px;

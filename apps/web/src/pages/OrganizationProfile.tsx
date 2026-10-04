@@ -12,23 +12,19 @@ import {
   Circle,
   FileText,
   Globe,
-  KeyRound,
   MapPin,
   Pencil,
   Phone,
-  Plus,
   RefreshCw,
   Save,
   ShieldCheck,
   Users,
   Wallet,
-  X,
 } from 'lucide-react';
-import { ApiError, api, list, useAction, useApi, useSession } from '../api';
+import { ApiError, api, useAction, useApi, useSession } from '../api';
 import { useProfileDraft } from '../profile-drafts';
-import type { Branch, Catalog, Membership, Organization, Page } from '../api';
+import type { Branch, Catalog, Membership, Organization } from '../api';
 import {
-  Action,
   Empty,
   ErrorState,
   Feedback,
@@ -39,7 +35,6 @@ import {
   dateTime,
 } from '../components';
 import { useOrganization } from './Employer';
-import { localToIso } from './Worker';
 import { PrivateFiles } from './Security';
 import { organizationProfileCopy } from './organization-profile-copy';
 import type { OrganizationProfileCopy } from './organization-profile-copy';
@@ -68,14 +63,6 @@ interface SubscriptionSummary {
     endsAt: string;
     planVersion: { branchLimit: number; memberLimit: number; publishLimit: number };
   } | null;
-}
-interface ApiKey {
-  id: string;
-  name: string;
-  keyPrefix: string;
-  scopes: string[];
-  expiresAt: string;
-  revokedAt: string | null;
 }
 type Draft = {
   name: string;
@@ -222,7 +209,6 @@ function CompanyProfile({ membership, userId }: { membership: Membership; userId
   const canManage = permission('organization.manage');
   const canBilling = permission('billing.read');
   const canTeam = permission('member.invite') || permission('branch.manage');
-  const canKeys = permission('api.manage');
   const billing = useApi<SubscriptionSummary>(`${path}/billing`, canBilling);
   const verify = useAction(`${path}/verification`);
   const { initialDraft, capture, clear: clearDraft } = useProfileDraft<Editor>(userId, path);
@@ -231,7 +217,6 @@ function CompanyProfile({ membership, userId }: { membership: Membership; userId
   const [discardOpen, setDiscardOpen] = useState(false);
   const [saved, setSaved] = useState(false);
   const [documentsOpen, setDocumentsOpen] = useState(false);
-  const [integrationsOpen, setIntegrationsOpen] = useState(false);
   const dirty = !!editor && fields.some((field) => editor.draft[field] !== editor.baseline[field]);
   useLayoutEffect(() => {
     capture(dirty ? editor : null);
@@ -819,28 +804,6 @@ function CompanyProfile({ membership, userId }: { membership: Membership; userId
                   )}
                 </Section>
               )}
-              {canKeys && (
-                <section className="org-profile-section org-integrations">
-                  <button
-                    className="org-disclosure-button"
-                    aria-expanded={integrationsOpen}
-                    aria-controls="org-api-keys"
-                    onClick={() => setIntegrationsOpen(!integrationsOpen)}
-                  >
-                    <KeyRound size={22} />
-                    <span>
-                      <strong>{copy.integrations}</strong>
-                      <small>{copy.integrationsHint}</small>
-                    </span>
-                    {integrationsOpen ? <X size={18} /> : <Plus size={18} />}
-                  </button>
-                  {integrationsOpen && (
-                    <div id="org-api-keys">
-                      <ApiKeys organizationId={company.id} />
-                    </div>
-                  )}
-                </section>
-              )}
             </div>
             <aside className="org-profile-aside">
               <section className="org-side-card">
@@ -996,106 +959,6 @@ function CompanyProfile({ membership, userId }: { membership: Membership; userId
           </button>
         </div>
       </Modal>
-    </div>
-  );
-}
-
-function ApiKeys({ organizationId }: { organizationId: string }) {
-  const { t, i18n } = useTranslation();
-  const query = useApi<Page<ApiKey>>(`/organizations/${organizationId}/api-keys`);
-  const create = useAction<{ key: string }>(`/organizations/${organizationId}/api-keys`);
-  const [name, setName] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [scopes, setScopes] = useState(['shifts:read']);
-  return (
-    <div className="org-api-layout">
-      <QueryState pending={query.isPending} error={query.error} retry={() => void query.refetch()}>
-        <div className="record-list">
-          {list(query.data).length ? (
-            list(query.data).map((item) => (
-              <section className="panel" key={item.id}>
-                <div className="record-heading">
-                  <h3>{item.name}</h3>
-                  <Status value={item.revokedAt ? 'REVOKED' : 'ACTIVE'} />
-                </div>
-                <code>{item.keyPrefix}…</code>
-                <p className="small muted">{dateTime(item.expiresAt, i18n.language)}</p>
-                <div className="permission-list">
-                  {item.scopes.map((scope) => (
-                    <code key={scope}>{scope}</code>
-                  ))}
-                </div>
-                {!item.revokedAt && (
-                  <Action
-                    path={`/organizations/${organizationId}/api-keys/${item.id}`}
-                    method="DELETE"
-                    label={t('revoke')}
-                  />
-                )}
-              </section>
-            ))
-          ) : (
-            <Empty />
-          )}
-        </div>
-      </QueryState>
-      <form
-        className="form-stack"
-        onSubmit={(event) => {
-          event.preventDefault();
-          create.mutate({ name, expiresAt: localToIso(expiry), scopes });
-        }}
-      >
-        <h3>{t('newApiKey')}</h3>
-        <label>
-          {t('name')}
-          <input
-            required
-            minLength={2}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        <label>
-          {t('end')}
-          <input
-            required
-            type="datetime-local"
-            value={expiry}
-            onChange={(event) => setExpiry(event.target.value)}
-          />
-        </label>
-        <fieldset>
-          <legend>{t('permissions')}</legend>
-          {['shifts:read', 'assignments:read'].map((scope) => (
-            <label className="check-label" key={scope}>
-              <input
-                type="checkbox"
-                checked={scopes.includes(scope)}
-                onChange={(event) =>
-                  setScopes(
-                    event.target.checked
-                      ? [...scopes, scope]
-                      : scopes.filter((item) => item !== scope),
-                  )
-                }
-              />
-              <code>{scope}</code>
-            </label>
-          ))}
-        </fieldset>
-        <button className="button button-primary" disabled={!scopes.length || create.isPending}>
-          {t('save')}
-          <Plus size={17} />
-        </button>
-        <Feedback error={create.error} success={create.isSuccess} />
-        {create.data && (
-          <label>
-            {t('keyOnce')}
-            <textarea readOnly value={create.data.key} />
-          </label>
-        )}
-      </form>
     </div>
   );
 }

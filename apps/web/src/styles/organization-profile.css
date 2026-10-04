@@ -703,23 +703,6 @@
   margin-top: 6px;
   line-height: 1.6;
 }
-.org-api-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 22px;
-  padding-top: 25px;
-}
-.org-api-layout > *,
-.org-api-layout .record-card {
-  min-width: 0;
-}
-.org-api-layout .panel {
-  padding: 17px;
-}
-.org-api-layout code {
-  word-break: break-word;
-  font-size: 11px;
-}
 .org-profile-section .private-files {
   border: 0;
   box-shadow: none;
@@ -917,14 +900,6 @@
   .org-profile-notice {
     flex-wrap: wrap;
     padding: 15px;
-  }
-  .org-api-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .org-api-layout input,
-  .org-api-layout select,
-  .org-api-layout textarea {
-    font-size: 16px;
   }
   .org-discard-actions {
     flex-direction: column;

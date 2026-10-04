@@ -1,14 +1,17 @@
 import { z } from 'zod';
+import { localFixedOtpEnabled } from '../auth/otp';
 export function validateEnvironment() {
   const environment = z
     .object({
       APP_ENV: z.enum(['local', 'staging', 'production']),
+      API_HOST: z.union([z.ipv4(), z.ipv6()]).optional(),
       DATABASE_URL: z.string().startsWith('postgresql://'),
       REDIS_URL: z.string().min(1),
       OTP_PEPPER: z.string().min(32),
       CORS_ORIGINS: z.string().min(1).optional(),
       WEB_ORIGIN: z.string().optional(),
       SMS_PROVIDER: z.enum(['local', 'not-configured']).default('local'),
+      LOCAL_FIXED_OTP_ENABLED: z.enum(['true', 'false']).default('false'),
       LOCAL_DEV_KEY: z.string().min(24).optional(),
       LOCAL_MOCK_PAYMENTS: z.enum(['true', 'false']).default('false'),
       DEV_TOOLS_ENABLED: z.enum(['true', 'false']).default('false'),
@@ -19,6 +22,8 @@ export function validateEnvironment() {
     })
     .passthrough()
     .parse(process.env);
+  if (environment.LOCAL_FIXED_OTP_ENABLED === 'true' && !localFixedOtpEnabled(process.env))
+    throw new Error('Unsafe fixed OTP configuration: requires local development and local SMS');
   if (environment.APP_ENV === 'production' || process.env.NODE_ENV === 'production') {
     if (
       environment.APP_ENV !== 'production' ||

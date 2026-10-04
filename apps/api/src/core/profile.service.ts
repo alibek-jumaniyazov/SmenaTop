@@ -5,7 +5,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PermissionsService, ORG_PERMISSIONS } from '../common/permissions.service';
+import {
+  PermissionsService,
+  ORG_PERMISSIONS,
+  ROLE_PERMISSIONS,
+} from '../common/permissions.service';
 import type { AuthUser } from '../auth/current-user';
 import { randomBytes } from 'node:crypto';
 import { hash } from '../auth/auth.guard';
@@ -363,41 +367,54 @@ export class ProfileService {
     organizationId: string,
     input: { phone: string; role: string; branchIds: string[] },
   ) {
-    await this.permissions.requireOrg(user.id, organizationId, 'member.invite');
-    if (!['ADMIN', 'MANAGER', 'FINANCE'].includes(input.role))
-      throw new ForbiddenException('Role is not invitable');
-    const issuer = await this.permissions.permissions(user.id, organizationId);
-    if (issuer.member.role !== 'OWNER' && input.role === 'FINANCE')
-      throw new ForbiddenException('Financial permission grant requires owner');
+    return this.db.atomic(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Organization" WHERE id=${organizationId}::uuid FOR UPDATE`;
+      await this.invitationIssuer(user.id, organizationId, input.role);
+      if (
+        (await tx.branch.count({
+          where: { id: { in: input.branchIds }, organizationId, active: true },
+        })) !== input.branchIds.length
+      )
+        throw new ForbiddenException('Branch scope');
+      if (input.role === 'MANAGER' && !input.branchIds.length)
+        throw new ConflictException('Manager branch required');
+      const token = randomBytes(32).toString('base64url');
+      const invitation = await tx.teamInvitation.create({
+        data: {
+          organizationId,
+          ...input,
+          tokenHash: hash(token),
+          createdById: user.id,
+          expiresAt: new Date(Date.now() + 3 * 86400000),
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorId: user.id,
+          organizationId,
+          action: 'member.invite',
+          resourceId: invitation.id,
+        },
+      });
+      return {
+        invitation: { id: invitation.id, role: invitation.role, expiresAt: invitation.expiresAt },
+        token,
+      };
+    });
+  }
+  private async invitationIssuer(userId: string, organizationId: string, role: string) {
+    const issuer = await this.permissions.permissions(userId, organizationId);
     if (
-      (await this.db.branch.count({ where: { id: { in: input.branchIds }, organizationId } })) !==
-      input.branchIds.length
+      !issuer.permissions.includes('member.invite') ||
+      issuer.member.role === 'MANAGER' ||
+      issuer.member.branchIds.length ||
+      !['ADMIN', 'MANAGER', 'FINANCE'].includes(role) ||
+      (ROLE_PERMISSIONS[role] ?? []).some((permission) => !issuer.permissions.includes(permission))
     )
-      throw new ForbiddenException('Branch scope');
-    if (input.role === 'MANAGER' && !input.branchIds.length)
-      throw new ConflictException('Manager branch required');
-    const token = randomBytes(32).toString('base64url');
-    const invitation = await this.db.teamInvitation.create({
-      data: {
-        organizationId,
-        ...input,
-        tokenHash: hash(token),
-        createdById: user.id,
-        expiresAt: new Date(Date.now() + 3 * 86400000),
-      },
-    });
-    await this.db.auditLog.create({
-      data: {
-        actorId: user.id,
-        organizationId,
-        action: 'member.invite',
-        resourceId: invitation.id,
-      },
-    });
-    return {
-      invitation: { id: invitation.id, role: invitation.role, expiresAt: invitation.expiresAt },
-      token,
-    };
+      throw new ForbiddenException('Invitation grant exceeds authority');
+    if (issuer.member.role !== 'OWNER' && role === 'FINANCE')
+      throw new ForbiddenException('Financial permission grant requires owner');
+    return issuer;
   }
   async acceptInvite(user: AuthUser, token: string) {
     return this.db.atomic(async (tx) => {
@@ -413,6 +430,27 @@ export class ProfileService {
       await tx.$queryRaw`SELECT id FROM "Organization" WHERE id=${invite.organizationId}::uuid FOR UPDATE`;
       const current = await tx.teamInvitation.findUniqueOrThrow({ where: { id: invite.id } });
       if (current.acceptedAt) throw new ConflictException('Already accepted');
+      if (current.revokedAt || current.expiresAt <= new Date() || current.phone !== user.phone)
+        throw new ForbiddenException('Invitation invalid');
+      const issuerUser = await tx.user.findUnique({ where: { id: current.createdById } });
+      if (issuerUser?.status !== 'ACTIVE')
+        throw new ForbiddenException('Invitation issuer inactive');
+      const issuer = await this.invitationIssuer(
+        current.createdById,
+        current.organizationId,
+        current.role,
+      );
+      if (
+        (current.role === 'MANAGER' && !current.branchIds.length) ||
+        (await tx.branch.count({
+          where: {
+            id: { in: current.branchIds },
+            organizationId: current.organizationId,
+            active: true,
+          },
+        })) !== new Set(current.branchIds).size
+      )
+        throw new ForbiddenException('Invitation branch scope invalid');
       const currentMembership = await tx.organizationMembership.findUnique({
         where: {
           organizationId_userId: { organizationId: invite.organizationId, userId: user.id },
@@ -420,6 +458,17 @@ export class ProfileService {
       });
       if (currentMembership?.role === 'OWNER')
         throw new ForbiddenException('Owner role changes require ownership transfer');
+      if (currentMembership) {
+        const custom = currentMembership.customRoleId
+          ? await tx.organizationRole.findFirstOrThrow({
+              where: { id: currentMembership.customRoleId, organizationId: current.organizationId },
+            })
+          : null;
+        const previousPermissions =
+          custom?.permissions ?? ROLE_PERMISSIONS[currentMembership.role] ?? [];
+        if (previousPermissions.some((permission) => !issuer.permissions.includes(permission)))
+          throw new ForbiddenException('Cannot replace privileges above invitation issuer');
+      }
       const ent = await tx.entitlement.findFirst({
         where: {
           organizationId: invite.organizationId,
@@ -447,10 +496,15 @@ export class ProfileService {
         create: {
           organizationId: invite.organizationId,
           userId: user.id,
-          role: invite.role,
-          branchIds: invite.branchIds,
+          role: current.role,
+          branchIds: current.branchIds,
         },
-        update: { status: 'ACTIVE', role: invite.role, branchIds: invite.branchIds },
+        update: {
+          status: 'ACTIVE',
+          role: current.role,
+          customRoleId: null,
+          branchIds: current.branchIds,
+        },
       });
       await tx.session.updateMany({ where: { userId: user.id }, data: { revokedAt: new Date() } });
       return { membership, reauthenticate: true };

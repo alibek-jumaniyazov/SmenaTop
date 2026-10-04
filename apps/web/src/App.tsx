@@ -3,9 +3,10 @@ import { Component, Suspense, lazy, useEffect, useState } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useSession } from './api';
+import { ApiError, useSession } from './api';
 import { ErrorState, Loading, Shell } from './components';
 import { Landing as Public } from './pages/Landing';
+import { adminHome, canOpenAdminPage } from './workspace-access';
 
 const Mfa = lazy(() => import('./pages/Security').then((m) => ({ default: m.MfaPage })));
 const Auth = lazy(() => import('./pages/Auth').then((m) => ({ default: m.AuthPage })));
@@ -63,20 +64,20 @@ const Billing = lazy(() => import('./pages/Operations').then((m) => ({ default: 
 const Admin = lazy(() => import('./pages/Admin').then((m) => ({ default: m.AdminQueue })));
 const AdminBilling = lazy(() => import('./pages/Admin').then((m) => ({ default: m.AdminBilling })));
 const AdminData = lazy(() => import('./pages/Admin').then((m) => ({ default: m.AdminData })));
-const Developer = lazy(() => import('./pages/Admin').then((m) => ({ default: m.DeveloperPage })));
 
 function Guard({
   zone,
   children,
 }: {
-  zone?: 'worker' | 'employer' | 'admin' | 'developer';
+  zone?: 'worker' | 'employer' | 'admin';
   children: ReactNode;
 }) {
   const session = useSession();
   const location = useLocation();
   if (session.isPending) return <Loading />;
   if (session.error) {
-    if (session.error.message.includes('MFA_REQUIRED')) return <Navigate to="/auth/mfa" replace />;
+    if (session.error instanceof ApiError && session.error.code === 'MFA_REQUIRED')
+      return <Navigate to="/auth/mfa" replace />;
     return <ErrorState error={session.error} />;
   }
   if (!session.data)
@@ -86,11 +87,18 @@ function Guard({
         replace
       />
     );
-  if (zone === 'admin' && !session.data.user.platformPermissions.length)
+  if (zone === 'admin' && !adminHome(session.data.user.platformPermissions))
     return <NotFound forbidden />;
-  if (zone === 'developer' && !localToolsEnabled) return <NotFound forbidden />;
   if (zone) return <Shell zone={zone}>{children}</Shell>;
   return <>{children}</>;
+}
+function AdminAccess({ path, children }: { path: string; children: ReactNode }) {
+  const session = useSession();
+  const permissions = session.data?.user.platformPermissions ?? [];
+  if (canOpenAdminPage(permissions, path)) return <>{children}</>;
+  const home = adminHome(permissions);
+  if (path === '/admin' && home) return <Navigate to={home} replace />;
+  return <NotFound forbidden />;
 }
 function EmployerRoutes() {
   const session = useSession();
@@ -236,22 +244,40 @@ export default function App() {
             element={
               <Guard zone="admin">
                 <Routes>
-                  <Route index element={<Admin />} />
-                  <Route path="billing" element={<AdminBilling />} />
-                  <Route path="support" element={<Admin support />} />
-                  <Route path="audit" element={<AdminData kind="audit" />} />
-                  <Route path="catalogs" element={<AdminData kind="catalogs" />} />
-                  <Route path="health" element={<AdminData kind="health" />} />
+                  <Route
+                    index
+                    element={
+                      <AdminAccess path="/admin">
+                        <Admin />
+                      </AdminAccess>
+                    }
+                  />
+                  <Route
+                    path="billing"
+                    element={
+                      <AdminAccess path="/admin/billing">
+                        <AdminBilling />
+                      </AdminAccess>
+                    }
+                  />
+                  <Route
+                    path="support"
+                    element={
+                      <AdminAccess path="/admin/support">
+                        <Admin support />
+                      </AdminAccess>
+                    }
+                  />
+                  <Route
+                    path="catalogs"
+                    element={
+                      <AdminAccess path="/admin/catalogs">
+                        <AdminData />
+                      </AdminAccess>
+                    }
+                  />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
-              </Guard>
-            }
-          />
-          <Route
-            path="/developer/*"
-            element={
-              <Guard zone="developer">
-                <Developer />
               </Guard>
             }
           />

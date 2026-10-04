@@ -1,23 +1,15 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Activity, ArrowUpRight, FileCheck2, Search, ShieldCheck, Wallet } from 'lucide-react';
-import { api, useApi } from '../api';
-import {
-  Action,
-  Empty,
-  ErrorState,
-  PageHeading,
-  QueryState,
-  Status,
-  dateTime,
-  money,
-} from '../components';
+import { Activity, FileCheck2, Search, ShieldCheck, Wallet } from 'lucide-react';
+import { useApi, useSession } from '../api';
+import { Action, Empty, PageHeading, QueryState, Status, dateTime, money } from '../components';
 import { TextForm } from './Operations';
 
 interface Verification {
   id: string;
   subjectType: string;
   subjectId: string;
+  subjectName?: string | null;
   status: string;
   createdAt: string;
   notes?: string;
@@ -86,43 +78,68 @@ function SkillReviewQueue() {
 }
 export function AdminQueue({ support = false }: { support?: boolean }) {
   const { t, i18n } = useTranslation();
+  const session = useSession();
+  const permissions = session.data?.user.platformPermissions ?? [];
   const query = useApi<Queue>('/admin/queue');
-  const [tab, setTab] = useState<'verifications' | 'disputes' | 'tickets'>(
+  const [selectedTab, setTab] = useState<'verifications' | 'disputes' | 'tickets'>(
     support ? 'tickets' : 'verifications',
   );
+  const tabs = (
+    [
+      ['verifications', 'verification.review', 'verification'],
+      ['disputes', 'dispute.resolve', 'dispute'],
+      ['tickets', 'support.manage', 'support'],
+    ] as const
+  ).filter(([, permission]) => permissions.includes(permission));
+  const tab = tabs.some(([value]) => value === selectedTab)
+    ? selectedTab
+    : (tabs[0]?.[0] ?? 'tickets');
   const [q, setQ] = useState('');
+  const search = q.trim().toLowerCase();
+  const verifications =
+    query.data?.verifications.filter((item) =>
+      `${item.subjectName || ''} ${item.notes || ''}`.toLowerCase().includes(search),
+    ) ?? [];
+  const tickets =
+    tab === 'verifications'
+      ? []
+      : (query.data?.[tab] ?? []).filter((item) =>
+          `${item.subject || ''} ${item.description || ''} ${item.category || ''}`
+            .toLowerCase()
+            .includes(search),
+        );
   return (
     <>
-      <PageHeading eyebrow="PLATFORM / OPERATIONS" title={t(support ? 'support' : 'queue')} />
-      {!support && <SkillReviewQueue />}
-      <div className="stat-grid">
-        <div className="stat-card">
-          <ShieldCheck />
-          <span>{t('verification')}</span>
-          <strong>{query.data?.verifications.length || 0}</strong>
-        </div>
-        <div className="stat-card">
-          <FileCheck2 />
-          <span>{t('dispute')}</span>
-          <strong>{query.data?.disputes.length || 0}</strong>
-        </div>
-        <div className="stat-card">
-          <Activity />
-          <span>{t('support')}</span>
-          <strong>{query.data?.tickets.length || 0}</strong>
-        </div>
+      <PageHeading eyebrow="SMENATOP" title={t(support ? 'support' : 'queue')} />
+      {!support && permissions.includes('verification.review') && <SkillReviewQueue />}
+      <div className="stat-grid admin-stat-grid">
+        {permissions.includes('verification.review') && (
+          <div className="stat-card">
+            <ShieldCheck />
+            <span>{t('verification')}</span>
+            <strong>{query.data?.verifications.length || 0}</strong>
+          </div>
+        )}
+        {permissions.includes('dispute.resolve') && (
+          <div className="stat-card">
+            <FileCheck2 />
+            <span>{t('dispute')}</span>
+            <strong>{query.data?.disputes.length || 0}</strong>
+          </div>
+        )}
+        {permissions.includes('support.manage') && (
+          <div className="stat-card">
+            <Activity />
+            <span>{t('support')}</span>
+            <strong>{query.data?.tickets.length || 0}</strong>
+          </div>
+        )}
       </div>
       <div className="queue-toolbar">
         <div className="filter-chips">
-          {(['verifications', 'disputes', 'tickets'] as const).map((value) => (
+          {tabs.map(([value, , label]) => (
             <button key={value} aria-pressed={tab === value} onClick={() => setTab(value)}>
-              {t(
-                value === 'verifications'
-                  ? 'verification'
-                  : value === 'disputes'
-                    ? 'dispute'
-                    : 'support',
-              )}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -138,62 +155,63 @@ export function AdminQueue({ support = false }: { support?: boolean }) {
       </div>
       <QueryState pending={query.isPending} error={query.error} retry={() => void query.refetch()}>
         {tab === 'verifications' ? (
-          query.data?.verifications.length ? (
+          verifications.length ? (
             <div className="record-list">
-              {query.data.verifications
-                .filter((item) => JSON.stringify(item).toLowerCase().includes(q.toLowerCase()))
-                .map((item) => (
-                  <article className="panel verification-row" key={item.id}>
-                    <div>
-                      <span className="eyebrow">{item.subjectType}</span>
-                      <h3>{item.subjectId}</h3>
-                      <p>{dateTime(item.createdAt, i18n.language)}</p>
-                      <Status value={item.status} />
-                      {item.notes && <p>{item.notes}</p>}
-                    </div>
-                    <div className="form-actions">
-                      <Action
-                        reason
-                        path={`/admin/verification/${item.id}`}
-                        label={t('confirm')}
-                        body={{ status: 'VERIFIED' }}
-                        className="button button-primary compact"
-                      />
-                      <Action
-                        reason
-                        path={`/admin/verification/${item.id}`}
-                        label={t('reject')}
-                        body={{ status: 'REJECTED' }}
-                      />
-                    </div>
-                  </article>
-                ))}
+              {verifications.map((item) => (
+                <article className="panel verification-row" key={item.id}>
+                  <div>
+                    <span className="eyebrow">
+                      {t(item.subjectType === 'ORGANIZATION' ? 'organizationProfile' : 'profile')}
+                    </span>
+                    <h3>
+                      {item.subjectName ||
+                        t(item.subjectType === 'ORGANIZATION' ? 'organizationProfile' : 'profile')}
+                    </h3>
+                    <p>{dateTime(item.createdAt, i18n.language)}</p>
+                    <Status value={item.status} />
+                    {item.notes && <p>{item.notes}</p>}
+                  </div>
+                  <div className="form-actions">
+                    <Action
+                      reason
+                      path={`/admin/verification/${item.id}`}
+                      label={t('confirm')}
+                      body={{ status: 'VERIFIED' }}
+                      className="button button-primary compact"
+                    />
+                    <Action
+                      reason
+                      path={`/admin/verification/${item.id}`}
+                      label={t('reject')}
+                      body={{ status: 'REJECTED' }}
+                    />
+                  </div>
+                </article>
+              ))}
             </div>
           ) : (
             <Empty />
           )
-        ) : (query.data?.[tab].length || 0) > 0 ? (
+        ) : tickets.length > 0 ? (
           <div className="record-list">
-            {query.data?.[tab]
-              .filter((item) => JSON.stringify(item).toLowerCase().includes(q.toLowerCase()))
-              .map((item) => (
-                <article className="panel" key={item.id}>
-                  <div className="record-heading">
-                    <h2>{item.subject || item.category}</h2>
-                    <Status value={item.status} />
-                  </div>
-                  <p>{item.description}</p>
-                  <small>{dateTime(item.createdAt, i18n.language)}</small>
-                  <details className="admin-resolution">
-                    <summary>{t('resolve')}</summary>
-                    <TextForm
-                      path={`/admin/${tab === 'tickets' ? 'support' : 'disputes'}/${item.id}/resolve`}
-                      label={t('resolve')}
-                      fields={[{ name: 'resolution', label: 'reason', type: 'textarea' }]}
-                    />
-                  </details>
-                </article>
-              ))}
+            {tickets.map((item) => (
+              <article className="panel" key={item.id}>
+                <div className="record-heading">
+                  <h2>{item.subject || item.category}</h2>
+                  <Status value={item.status} />
+                </div>
+                <p>{item.description}</p>
+                <small>{dateTime(item.createdAt, i18n.language)}</small>
+                <details className="admin-resolution">
+                  <summary>{t('resolve')}</summary>
+                  <TextForm
+                    path={`/admin/${tab === 'tickets' ? 'support' : 'disputes'}/${item.id}/resolve`}
+                    label={t('resolve')}
+                    fields={[{ name: 'resolution', label: 'reason', type: 'textarea' }]}
+                  />
+                </details>
+              </article>
+            ))}
           </div>
         ) : (
           <Empty />
@@ -231,7 +249,7 @@ export function AdminBilling() {
   const query = useApi<FinanceQueue>('/admin/billing');
   return (
     <>
-      <PageHeading eyebrow="PLATFORM / FINANCE" title={t('billing')} />
+      <PageHeading eyebrow="SMENATOP" title={t('billing')} />
       <QueryState pending={query.isPending} error={query.error} retry={() => void query.refetch()}>
         <div className="section-heading compact-heading">
           <h2>{t('reconciliation')}</h2>
@@ -302,79 +320,3 @@ export function AdminBilling() {
   );
 }
 export { AdminData } from './Management';
-export function DeveloperPage() {
-  const { t } = useTranslation();
-  const query = useApi<unknown>('/health');
-  const [devKey, setDevKey] = useState('');
-  const [phone, setPhone] = useState('+998');
-  const [data, setData] = useState<unknown>();
-  const [error, setError] = useState<unknown>();
-  return (
-    <>
-      <PageHeading eyebrow="LOCAL / DEVELOPER" title={t('developer')} text={t('localOnly')} />
-      <p className="notice">{t('localBanner')}</p>
-      <div className="split-content">
-        <section className="panel">
-          <div className="record-heading">
-            <h2>{t('system')}</h2>
-            <Activity />
-          </div>
-          <QueryState
-            pending={query.isPending}
-            error={query.error}
-            retry={() => void query.refetch()}
-          >
-            <pre className="data-code">{JSON.stringify(query.data, null, 2)}</pre>
-          </QueryState>
-          <a className="button button-outline" href="/api/docs" target="_blank" rel="noreferrer">
-            {t('apiDocs')}
-            <ArrowUpRight size={18} />
-          </a>
-        </section>
-        <section className="panel">
-          <h2>{t('devInbox')}</h2>
-          <form
-            className="form-stack"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              try {
-                setError(undefined);
-                setData(
-                  await api(`/developer/inbox?phone=${encodeURIComponent(phone)}`, {
-                    headers: { 'x-dev-key': devKey },
-                  }),
-                );
-              } catch (e) {
-                setError(e);
-              }
-            }}
-          >
-            <label>
-              {t('devKey')}
-              <input
-                type="password"
-                autoComplete="off"
-                value={devKey}
-                onChange={(event) => setDevKey(event.target.value)}
-                required
-              />
-            </label>
-            <label>
-              {t('phone')}
-              <input
-                type="tel"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                required
-              />
-            </label>
-            <button className="button button-primary">{t('loadInbox')}</button>
-            <p className="small muted">{t('devHint')}</p>
-            {error !== undefined && <ErrorState error={error} />}
-            {data !== undefined && <pre className="data-code">{JSON.stringify(data, null, 2)}</pre>}
-          </form>
-        </section>
-      </div>
-    </>
-  );
-}

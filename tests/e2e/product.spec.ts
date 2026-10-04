@@ -9,6 +9,7 @@ import {
 import { PrismaClient } from '@prisma/client';
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
+import { saveScreenshot } from './screenshot';
 
 const db = new PrismaClient();
 const baseURL = process.env.E2E_BASE_URL || 'http://localhost:5173';
@@ -59,7 +60,7 @@ async function assertDrawerInteraction(page: Page, dialog: Locator, screenshotNa
   await expect(page.locator('body')).toHaveCSS('overflow', 'hidden');
   await mkdir('docs/screenshots', { recursive: true });
   await page.evaluate(() => document.fonts.ready);
-  await page.screenshot({ path: `docs/screenshots/${screenshotName}-390.png` });
+  await saveScreenshot(page, { path: `docs/screenshots/${screenshotName}-390.png` });
   const close = dialog.getByRole('button', { name: 'Yopish', exact: true });
   await close.focus();
   await page.keyboard.press('Shift+Tab');
@@ -282,7 +283,8 @@ test('keyboard action dialog and workspace mobile drawer retain focus and route 
     const reason = 'Controlled browser failure verification';
     await dialog.getByRole('textbox').fill(reason);
     await dialog.getByRole('button', { name: 'Tasdiqlash', exact: true }).click();
-    await expect(dialog.getByRole('alert')).toContainText(
+    await expect(dialog.getByRole('alert')).toContainText('Ma’lumot o‘zgargan');
+    await expect(dialog.getByRole('alert')).not.toContainText(
       'Smena holati yangilangan. Qayta tekshiring.',
     );
     await expect(dialog.getByRole('textbox')).toHaveValue(reason);
@@ -326,9 +328,8 @@ test('keyboard action dialog and workspace mobile drawer retain focus and route 
   }
 });
 
-test('phone OTP browser flow starts a real session with no universal code', async ({
+test('phone OTP browser flow starts a real session from a requested challenge', async ({
   page,
-  request,
 }) => {
   const phone = `+99884${String(Date.now()).slice(-7)}`;
   await page.goto('/auth');
@@ -343,12 +344,17 @@ test('phone OTP browser flow starts a real session with no universal code', asyn
     code?: string;
   };
   expect(challenge.code).toBeUndefined();
-  const inbox = await request.get(
-    `http://localhost:3000/api/v1/developer/inbox?phone=${encodeURIComponent(phone)}`,
-    { headers: { 'x-dev-key': process.env.LOCAL_DEV_KEY! } },
-  );
-  const data = (await inbox.json()) as { items: { code: string }[] };
-  await page.getByLabel('Tasdiqlash kodi', { exact: true }).fill(data.items[0]!.code);
+  const inbox = await db.localInbox.findFirstOrThrow({
+    where: { phone, challengeId: challenge.challengeId },
+  });
+  if (
+    process.env.APP_ENV === 'local' &&
+    process.env.NODE_ENV !== 'production' &&
+    process.env.SMS_PROVIDER === 'local' &&
+    process.env.LOCAL_FIXED_OTP_ENABLED === 'true'
+  )
+    expect(inbox.body).toBe('123456');
+  await page.getByLabel('Tasdiqlash kodi', { exact: true }).fill(inbox.body);
   await page.getByRole('button', { name: 'Davom etish' }).click();
   await expect(page).toHaveURL(/\/context$/);
   await expect(page.getByRole('heading', { name: 'Ish maydonini tanlang' })).toBeVisible();
@@ -487,7 +493,7 @@ test('employer creates and publishes a shift; worker applies, receives offer and
   }
 });
 
-test('responsive visual QA across public, worker, employer, billing, admin and developer routes', async ({
+test('responsive visual QA across public, worker, employer, billing and admin routes', async ({
   browser,
 }) => {
   test.setTimeout(120_000);
@@ -501,7 +507,6 @@ test('responsive visual QA across public, worker, employer, billing, admin and d
     worker: await roleContext(browser, assignment.worker.phone),
     employer: await roleContext(browser, '+998900000001'),
     admin: await roleContext(browser, '+998900000099'),
-    developer: await roleContext(browser, '+998900000098'),
   };
   const publicShift = await db.shift.findFirstOrThrow({ where: { status: 'PUBLISHED' } });
   const targets = [
@@ -514,7 +519,6 @@ test('responsive visual QA across public, worker, employer, billing, admin and d
     ['employer-calendar', 'employer', '/employer/calendar'],
     ['billing', 'employer', '/employer/billing'],
     ['admin-queue', 'admin', '/admin'],
-    ['developer', 'developer', '/developer'],
   ];
   try {
     for (const [name, role, url] of targets) {
@@ -543,7 +547,10 @@ test('responsive visual QA across public, worker, employer, billing, admin and d
               .evaluate((element) => parseFloat(getComputedStyle(element).fontSize)),
           ).toBeGreaterThanOrEqual(16);
         if ([390, 1440].includes(width) || (name === 'employer-calendar' && width === 360))
-          await page.screenshot({ path: `docs/screenshots/${name}-${width}.png`, fullPage: true });
+          await saveScreenshot(page, {
+            path: `docs/screenshots/${name}-${width}.png`,
+            fullPage: true,
+          });
         expect(
           await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
           `${name} overflows at ${width}`,
@@ -567,7 +574,7 @@ test('responsive visual QA across public, worker, employer, billing, admin and d
       await expect(page.getByRole('button', { name: 'Язык', exact: true })).toBeVisible();
       for (const width of [390, 1440]) {
         await page.setViewportSize({ width, height: 1000 });
-        await page.screenshot({
+        await saveScreenshot(page, {
           path: `docs/screenshots/${name}-ru-dark-${width}.png`,
           fullPage: true,
         });

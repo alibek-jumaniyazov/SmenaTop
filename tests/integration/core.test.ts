@@ -60,7 +60,7 @@ test('OTP is opaque, single-use, attempt-limited and revocable; local inbox requ
   assert.equal((await client.request('/auth/otp/request', { phone })).status, 429);
   assert.equal(
     (await client.request(`/developer/inbox?phone=${encodeURIComponent(phone)}`)).status,
-    403,
+    404,
   );
   const inbox = await client.request<{ items: { code: string }[] }>(
     `/developer/inbox?phone=${encodeURIComponent(phone)}`,
@@ -70,6 +70,7 @@ test('OTP is opaque, single-use, attempt-limited and revocable; local inbox requ
   );
   assert.equal(inbox.status, 200);
   const code = inbox.data.items[0]!.code;
+  if (process.env.LOCAL_FIXED_OTP_ENABLED === 'true') assert.equal(code, '123456');
   const login = await client.request('/auth/otp/verify', {
     challengeId: challenge.data.challengeId,
     code,

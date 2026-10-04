@@ -1197,3 +1197,235 @@
     transform: none;
   }
 }
+
+/* Comfortable phone controls and persistent navigation above device safe areas. */
+.workspace-current-page {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.auth-phone {
+  color: var(--ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.admin-stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+.skill-review > summary,
+.admin-resolution > summary {
+  min-height: 48px;
+  padding-block: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+@media (max-width: 767px) {
+  .workspace-header {
+    min-height: 68px;
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-bottom: 10px;
+    background: color-mix(in srgb, var(--surface) 93%, transparent);
+  }
+  .workspace-header .workspace-breadcrumb {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+  }
+  .workspace-header > div {
+    flex-shrink: 0;
+  }
+  .workspace-main {
+    padding-top: 24px;
+  }
+  .bottom-nav {
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: auto;
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 8px 6px;
+    box-shadow: 0 8px 30px #11152b1a;
+  }
+  .bottom-nav > a {
+    min-height: 57px;
+    justify-content: center;
+    border-radius: 17px;
+  }
+  .bottom-nav > a > span {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .bottom-nav > a.active {
+    color: var(--action);
+  }
+  .workspace-navigation-dialog[open] {
+    height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    margin-top: max(8px, env(safe-area-inset-top));
+    margin-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .workspace-drawer {
+    -webkit-overflow-scrolling: touch;
+  }
+  .workspace-drawer nav > a {
+    min-height: 48px;
+    font-size: 14px;
+  }
+  .workspace-main .queue-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .queue-toolbar > .filter-chips {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    width: 100%;
+    padding-block: 3px;
+    scrollbar-width: thin;
+  }
+  .queue-toolbar .filter-chips button {
+    flex-shrink: 0;
+    min-height: 46px;
+  }
+  .queue-toolbar > .search-input {
+    width: 100%;
+  }
+  .queue-toolbar .search-input input {
+    width: 100%;
+    min-width: 0;
+    font-size: 16px;
+  }
+  .admin-workspace .record-heading,
+  .admin-workspace .verification-row {
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .admin-workspace .verification-row > div,
+  .admin-workspace .record-heading h2 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .admin-workspace .form-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+    gap: 10px;
+  }
+  .admin-workspace .form-actions > [aria-live]:empty {
+    position: absolute;
+  }
+  .admin-workspace .form-actions > [aria-live]:not(:empty),
+  .admin-workspace .form-actions > .error-state {
+    grid-column: 1 / -1;
+  }
+  .admin-workspace .button,
+  .admin-workspace .record-card > .button {
+    min-height: 48px;
+    font-size: 13px;
+  }
+  .admin-workspace .record-card > .button {
+    flex: 1;
+  }
+  .admin-workspace .record-card > svg {
+    display: none;
+  }
+  .admin-workspace .record-card h3 {
+    font-size: 17px;
+  }
+  .admin-stat-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+  }
+  .catalog-row {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding-block: 12px;
+  }
+  .context-grid {
+    gap: 12px;
+  }
+  .context-card {
+    position: relative;
+    padding: 22px 46px 22px 64px;
+    min-height: 110px;
+    border-radius: 18px;
+  }
+  .context-card > svg:first-child {
+    position: absolute;
+    left: 21px;
+    top: 25px;
+    width: 24px;
+    height: 24px;
+    margin: 0;
+  }
+  .context-card h2 {
+    margin: 0 0 5px;
+    font-size: 18px;
+    overflow-wrap: anywhere;
+  }
+  .context-card p {
+    margin: 0;
+    font-size: 13px;
+  }
+  .context-card > svg:last-child {
+    position: absolute;
+    right: 18px;
+    top: 26px;
+    width: 19px;
+    height: 19px;
+    margin: 0;
+  }
+  .auth-layout {
+    padding-top: 28px;
+  }
+  .auth-story h1 {
+    font-size: 31px;
+    line-height: 1.2;
+  }
+  .auth-card .auth-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 16px;
+  }
+  .auth-card .otp-input {
+    font-size: 27px;
+    letter-spacing: 0.28em;
+    min-height: 58px;
+    text-align: center;
+  }
+  .auth-card .text-button {
+    min-height: 44px;
+  }
+  .workspace-main .messages-layout {
+    min-height: 0;
+  }
+  .workspace-main .message-compose .button {
+    flex-shrink: 0;
+    width: 50px;
+    min-height: 50px;
+  }
+  .private-files input[type='file'] {
+    max-width: 100%;
+    padding: 10px;
+  }
+  .private-files input::file-selector-button {
+    max-width: 100%;
+    min-height: 38px;
+    margin-right: 10px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent-lilac);
+    color: var(--action);
+    font: inherit;
+    font-size: 13px;
+  }
+}
+@media (max-width: 767px) and (max-height: 600px) {
+  .worker-workspace .resume-save-panel,
+  .employer-workspace .org-editor-actions {
+    position: static;
+  }
+}

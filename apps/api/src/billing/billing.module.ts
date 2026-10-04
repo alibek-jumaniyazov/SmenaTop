@@ -6,14 +6,13 @@ import {
 } from './billing.controller';
 import { BillingService } from './billing.service';
 import { PaymeService } from './payme.service';
+import { localToolsEnabled } from '../common/local-tools';
 
 @Module({
   controllers: [
     BillingController,
     PaymeController,
-    ...(process.env.APP_ENV !== 'production' && process.env.NODE_ENV !== 'production'
-      ? [LocalPaymentSimulatorController]
-      : []),
+    ...(localToolsEnabled() ? [LocalPaymentSimulatorController] : []),
   ],
   providers: [BillingService, PaymeService],
   exports: [BillingService, PaymeService],

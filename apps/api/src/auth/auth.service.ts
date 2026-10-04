@@ -5,12 +5,14 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { randomBytes, randomInt } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { hash, safeEqual } from './auth.guard';
 import { PermissionsService } from '../common/permissions.service';
 import type { AuthUser } from './current-user';
 import type { Response } from 'express';
+import { localToolsEnabled } from '../common/local-tools';
+import { generateOtpCode } from './otp';
 @Injectable()
 export class AuthService {
   constructor(
@@ -35,7 +37,7 @@ export class AuthService {
       });
       if ((latest && now.getTime() - latest.createdAt.getTime() < 60000) || count >= 10)
         throw new HttpException('OTP_LIMIT', 429);
-      const code = randomInt(0, 1000000).toString().padStart(6, '0');
+      const code = generateOtpCode();
       const expiresAt = new Date(now.getTime() + 300000);
       const row = await tx.otpChallenge.create({
         data: {
@@ -168,7 +170,7 @@ export class AuthService {
   }
   async inbox(key: string | undefined, phone?: string) {
     if (
-      process.env.APP_ENV === 'production' ||
+      !localToolsEnabled() ||
       process.env.SMS_PROVIDER !== 'local' ||
       !key ||
       !process.env.LOCAL_DEV_KEY ||
@@ -181,6 +183,9 @@ export class AuthService {
       orderBy: { createdAt: 'desc' },
       take: 10,
     });
-    return { items: items.map((item) => ({ ...item, code: item.body })), mode: 'LOCAL_MOCK' };
+    return {
+      items: items.map((item) => ({ code: item.body, createdAt: item.createdAt })),
+      mode: 'LOCAL_MOCK',
+    };
   }
 }

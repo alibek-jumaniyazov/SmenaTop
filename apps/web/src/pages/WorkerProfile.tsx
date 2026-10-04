@@ -111,7 +111,7 @@ function ProfileWorkspace({
   phone: string;
 }) {
   const c = useWorkerProfileCopy();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const localeKey = i18n.language === 'ru' ? 'nameRu' : 'nameUz';
   const id = useId();
   const {
@@ -681,7 +681,16 @@ function ProfileWorkspace({
               </div>
             </form>
           )}
-          <PrivateFiles />
+          <details className="resume-documents">
+            <summary>
+              <ShieldCheck size={21} />
+              <span>
+                {t('files')}
+                <small>{t('fileHint')}</small>
+              </span>
+            </summary>
+            <PrivateFiles />
+          </details>
         </div>
         <aside className="resume-aside">
           <section className="panel resume-completeness">
